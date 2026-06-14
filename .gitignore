@@ -1,0 +1,40 @@
+# ---- Raw data (lives outside the project conceptually; never commit) ----
+files/
+**/files/
+Summary.md
+.claude
+# ---- Pipeline outputs & trained models ----
+backend/data/processed/*
+!backend/data/processed/.gitkeep
+backend/models/*
+!backend/models/.gitkeep
+backend/logs/*
+!backend/logs/.gitkeep
+*.parquet
+*.pkl
+*.pt
+*.db
+ventassist.db
+
+# ---- Environments ----
+.venv/
+venv/
+backend/.env
+.env
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# ---- Node / frontend ----
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# ---- OS / editor ----
+.DS_Store
+.idea/
+.vscode/

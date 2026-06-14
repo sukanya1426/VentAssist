@@ -1,0 +1,22 @@
+# TIER 2 HybridIQL hyperparameters
+state_dim: 18
+action_dim: 25
+hidden_dim: 256
+gamma: 0.99
+tau: 0.8
+beta: 2.0
+lr: 3.0e-4
+batch_size: 256
+total_steps: 100000
+checkpoint_every: 10000
+early_stop_patience: 20000
+
+reward:
+  C1: 1.0
+  C2: 0.5
+  lam1: 0.3
+  lam2: 0.2
+  lam3: 0.15
+
+cql:
+  alpha: 0.25

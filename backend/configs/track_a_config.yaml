@@ -1,0 +1,20 @@
+# TIER 1 HybridIQL hyperparameters
+state_dim: 12
+action_dim: 125
+hidden_dim: 256
+gamma: 0.99
+tau: 0.8          # expectile
+beta: 2.0         # advantage temperature
+lr: 3.0e-4
+batch_size: 256
+total_steps: 100000
+checkpoint_every: 10000
+early_stop_patience: 20000
+
+reward:
+  C1: 1.0
+  C2: 0.5
+  lam1: 0.3
+
+cql:
+  alpha: 0.25
