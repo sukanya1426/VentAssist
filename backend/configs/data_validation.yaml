@@ -1,0 +1,65 @@
+# Data-quality contract for the processed MDP dataset.
+#
+# Mirrors the config-driven validation suite of the IntelliLung reference repo
+# (data_validation/): required columns present, no NaN in required columns, every
+# physiological feature within its clip range, valid splits/actions, and a minimum
+# episode length. Enforced by backend/tests/test_data_validation.py, which also
+# checks these feature_ranges stay in sync with config.{CHART,LAB}_CLIP_RANGES so
+# the contract cannot silently drift from the pipeline.
+#
+# Tracks: 'a' = 12-dim tabular (mdp_track_a.parquet), 'b' = 18-dim waveform.
+
+dataset_track_a: mdp_track_a.parquet
+dataset_track_b: mdp_track_b.parquet
+
+# Columns that must exist in every transition row.
+required_columns:
+  - stay_id
+  - hour
+  - split
+  - weight_kg
+  - propensity_z
+  - action
+  - reward
+  - done
+
+# Columns that must contain ZERO nulls.
+non_null_columns:
+  - stay_id
+  - hour
+  - split
+  - action
+  - reward
+  - done
+
+valid_splits: [train, val, test]
+
+# Physiological ranges applied to BOTH s_<feat> and ns_<feat> columns.
+# Must equal config.CHART_CLIP_RANGES ∪ config.LAB_CLIP_RANGES (drift-checked).
+feature_ranges:
+  PEEP:  [0.0, 30.0]
+  TV:    [0.0, 1500.0]
+  FiO2:  [0.21, 1.0]
+  SpO2:  [50.0, 100.0]
+  HR:    [20.0, 250.0]
+  SBP:   [40.0, 250.0]
+  RR:    [0.0, 60.0]
+  RASS:  [-5.0, 4.0]
+  Temp:  [30.0, 43.0]
+  PaO2:  [40.0, 600.0]
+  PaCO2: [15.0, 100.0]
+  pH:    [6.8, 7.8]
+
+# Fraction of out-of-range values tolerated per feature column (0.0 = strict).
+range_violation_tolerance: 0.0
+
+# weight_kg plausibility (adult range used by cohort.py).
+weight_kg_range: [20.0, 400.0]
+
+# Episode-structure checks.
+min_transitions_per_episode: 1
+max_episode_hours: 72        # config.MAX_EPISODE_HOURS
+
+# Reward sanity.
+require_finite_rewards: true
+require_nonnegative_actions: true

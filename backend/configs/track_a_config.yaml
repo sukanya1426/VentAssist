@@ -15,6 +15,49 @@ reward:
   C1: 1.0
   C2: 0.5
   lam1: 0.3
+  # Action-causal bonus (§14.4 fix). Operating point chosen by a HOLISTIC probe
+  # (backend/scripts/probe_operating_point.py) across a clinically diverse battery,
+  # not just the 3 seed tests. lam_causal=2.0 with alpha=0.5 is the balanced sweet
+  # spot: it passes all three §14.1 acceptance states (hypoxaemia→PEEP+2,
+  # hyperoxia→FiO2-0.10, hypercapnia→TV+25) AND keeps correct safety/settings
+  # behaviour (high PEEP→lower, volutrauma→cut TV, low PEEP→raise) AND HOLDS when
+  # stable (37 distinct actions, hold 0.68). Above ~2.5 the policy degenerates into
+  # "always raise FiO2" and ignores PEEP/TV safety; below ~2.0 it under-reacts to
+  # borderline physiology. See SUMMARY §7/§14.
+  lam_causal: 2.0
+  # Terminal outcome reward = mortality + ventilator-free days (reward.outcome_reward),
+  # attached at each episode's last transition. w_outcome scales the unit term
+  # (~[-1, +1]); 0.0 = DISABLED (default — the trained checkpoints used 0). Enabling
+  # changes the reward, so it requires: rebuild dataset (python -m backend.mdp.dataset)
+  # → retrain → verify_before_deploy. outcome_horizon_days sets the VFD/mortality window.
+  w_outcome: 0.25
+  outcome_horizon_days: 28
 
 cql:
-  alpha: 0.25
+  alpha: 0.5   # conservatism weight in the HybridIQL Q-loss (keeps argmax in-distribution)
+
+# Inverse-propensity weighting for confounding-by-indication (§16 item 8). When
+# enabled, transitions are reweighted by stabilised IPW (p(a)/π_β(a|s)) so the
+# frequently-taken, severity-confounded actions are down-weighted during training.
+# DEFAULT false — the deployed checkpoints train without it; enabling changes the
+# policy, so it requires retrain → verify_before_deploy. This is a partial
+# correction for *measured* confounding, not a cure for unmeasured confounders.
+ipw:
+  enabled: false
+
+# Time-varying propensity z_t = P(SpO2<88 in next 6h | state) for the §10.4 OPE
+# ablation (backend/pipeline/propensity_dynamic.py). Evaluation-only: it is never
+# used by the deployed policy or reward. dynamic_zt gates ONLY the opt-in
+# materialisation of a `propensity_zt` MDP column (propensity_z is left untouched);
+# DEFAULT false so the processed parquet and the static OPE path stay byte-for-byte
+# identical. The ablation script computes z_t on the fly regardless of this flag.
+propensity:
+  dynamic_zt: false
+
+# Blood-gas (PaO2/PaCO2/pH) GP imputation method (§3). 'matern' = independent
+# per-signal Matérn-3/2 GP (default, deployed). 'lmc' = multi-output intrinsic
+# coregionalization GP (backend/pipeline/gp_lmc.py) that imputes the correlated
+# labs JOINTLY. 'lmc' changes the imputed states → MDP → policy, so switching it on
+# requires a full rebuild → retrain → verify_before_deploy via run_track_a_pipeline.
+imputation:
+  method: matern

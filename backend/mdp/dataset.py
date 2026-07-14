@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import yaml
 
 from backend.mdp import action_space, normaliser, reward
 from backend.pipeline import config, splits
@@ -66,14 +67,68 @@ def _split_of(stay_id: int, split: dict[str, set]) -> str:
     return "test"
 
 
+def _reward_cfg(track: str) -> dict:
+    cfg_name = "track_a_config.yaml" if track == "a" else "track_b_config.yaml"
+    cfg = yaml.safe_load((config.REPO_ROOT / "backend" / "configs" / cfg_name).read_text())
+    return cfg.get("reward", {}) or {}
+
+
+def _reward_lam_causal(track: str) -> float:
+    """Read the action-causal bonus weight from the track config (Section 14.4)."""
+    return float(_reward_cfg(track).get("lam_causal", reward.LAM_CAUSAL))
+
+
+def _reward_w_outcome(track: str) -> float:
+    """Terminal outcome-reward weight (mortality + VFD). 0.0 = disabled (default)."""
+    return float(_reward_cfg(track).get("w_outcome", 0.0))
+
+
+def _outcome_horizon(track: str) -> float:
+    return float(_reward_cfg(track).get("outcome_horizon_days", 28.0))
+
+
+def _load_outcomes() -> dict[int, tuple[bool, float]]:
+    """stay_id → (died_within_horizon, vent_days); empty if outcomes.csv absent."""
+    path = config.PROCESSED_PATH / "outcomes.csv"
+    if not path.exists():
+        return {}
+    df = pd.read_csv(path)
+    # Only stays with a reliable outcome label contribute a terminal reward;
+    # unknown-label stays (degraded mode) are omitted → neutral 0.0 downstream.
+    if "outcome_label_known" in df.columns:
+        df = df[df["outcome_label_known"] == 1]
+    return {int(r.stay_id): (bool(r.died_horizon), float(r.vent_days))
+            for r in df.itertuples()}
+
+
+def recombined_reward(df: pd.DataFrame, track: str) -> np.ndarray:
+    """Reward = reward_base + lam_causal·causal_unit + w_outcome·outcome_unit.
+
+    Keeps the per-step causal bonus (§14.4) and the terminal outcome reward
+    sweepable via config without rebuilding the dataset. Falls back to the
+    materialised ``reward`` column for legacy datasets without the split columns.
+    """
+    if "reward_base" in df.columns and "causal_unit" in df.columns:
+        r = df["reward_base"] + _reward_lam_causal(track) * df["causal_unit"]
+        if "outcome_unit" in df.columns:
+            r = r + _reward_w_outcome(track) * df["outcome_unit"]
+        return r.to_numpy(np.float32)
+    return df["reward"].to_numpy(np.float32)
+
+
 def _build_transitions(states: pd.DataFrame, feats: list[str], track: str,
                        cohort: pd.DataFrame, prop: pd.DataFrame,
-                       split: dict[str, set]) -> pd.DataFrame:
+                       split: dict[str, set],
+                       outcomes: dict[int, tuple[bool, float]] | None = None) -> pd.DataFrame:
     """Build per-transition rows for a given track ('a' tabular / 'b' waveform)."""
     weight = cohort.set_index("stay_id")["weight_kg"].to_dict()
     zscore = (prop.set_index("stay_id")["propensity_z"].to_dict()
               if prop is not None and not prop.empty else {})
     reward_fn = reward.tier1_reward if track == "a" else reward.tier2_reward
+    lam_causal = _reward_lam_causal(track)
+    w_outcome = _reward_w_outcome(track)
+    outcomes = outcomes or {}
+    horizon = _outcome_horizon(track)
 
     rows: list[dict] = []
     for sid, g in states.groupby("stay_id"):
@@ -81,7 +136,19 @@ def _build_transitions(states: pd.DataFrame, feats: list[str], track: str,
         hours = g["hour"].to_numpy()
         w = float(weight.get(sid, 80.0))
         z = float(zscore.get(sid, 0.5))
-        last_hour = hours.max()
+        # UNIT terminal outcome term (scaled by config w_outcome in load_mdp).
+        # No outcome label for this stay → neutral 0.0 (NOT a survivor's +reward).
+        if int(sid) in outcomes:
+            died, vent_days = outcomes[int(sid)]
+            outcome_unit_terminal = reward.outcome_reward(died, vent_days, horizon_days=horizon)
+        else:
+            outcome_unit_terminal = 0.0
+
+        # Collect this episode's transitions first; the terminal flag and outcome
+        # reward are assigned to the LAST emitted transition afterwards. (Keying
+        # ``done`` off ``hour == last_hour`` mis-fires on duplicate hours or when
+        # the final transition is gap-dropped — see test_data_validation.)
+        stay_rows: list[dict] = []
         for i in range(len(g) - 1):
             if hours[i + 1] - hours[i] > config.VENT_MERGE_GAP_HOURS:
                 continue  # gap too large — drop transition
@@ -92,17 +159,34 @@ def _build_transitions(states: pd.DataFrame, feats: list[str], track: str,
             a = action_space.encode_action(ns_dict["PEEP"] - s_dict["PEEP"],
                                             ns_dict["TV"] - s_dict["TV"],
                                             ns_dict["FiO2"] - s_dict["FiO2"])
-            r = reward_fn(s_dict, ns_dict, w)
+            atuple = action_space.decode_action(a)
+            # Store the base reward (no causal bonus) and a UNIT causal bonus
+            # separately so lam_causal can be swept at train time (load_mdp
+            # recombines them) without rebuilding the dataset. The materialised
+            # ``reward`` uses the config lam_causal for direct/legacy consumers.
+            r_base = reward_fn(s_dict, ns_dict, atuple, w, lam_causal=0.0)
+            causal_unit = reward.action_causal_bonus(s_dict, atuple, w, lam_causal=1.0)
             row = {
                 "stay_id": int(sid), "hour": int(hours[i]),
                 "split": _split_of(int(sid), split),
                 "weight_kg": w, "propensity_z": z,
-                "action": int(a), "reward": float(r),
-                "done": bool(hours[i + 1] == last_hour),
+                "action": int(a),
+                "reward": float(r_base + lam_causal * causal_unit),
+                "reward_base": float(r_base), "causal_unit": float(causal_unit),
+                "outcome_unit": 0.0,
+                "done": False,
             }
             row.update({f"s_{f}": s_dict[f] for f in feats})
             row.update({f"ns_{f}": ns_dict[f] for f in feats})
-            rows.append(row)
+            stay_rows.append(row)
+
+        if stay_rows:
+            # Mark exactly one terminal per episode and attach the outcome reward.
+            term = stay_rows[-1]
+            term["done"] = True
+            term["outcome_unit"] = float(outcome_unit_terminal)
+            term["reward"] = float(term["reward"] + w_outcome * outcome_unit_terminal)
+            rows.extend(stay_rows)
     return pd.DataFrame(rows)
 
 
@@ -119,7 +203,8 @@ def build_track_a() -> pd.DataFrame:
 
     states = _fill_states(states, TABULAR, split["train"])
     tx = _build_transitions(states, TABULAR, track="a",
-                            cohort=cohort, prop=prop, split=split)
+                            cohort=cohort, prop=prop, split=split,
+                            outcomes=_load_outcomes())
     if tx.empty:
         raise ValueError("No Track A transitions produced.")
 
@@ -153,7 +238,8 @@ def build_track_b() -> pd.DataFrame | None:
     merged = merged.dropna(subset=WAVEFORM)   # keep only complete-waveform rows
     feats18 = TABULAR + WAVEFORM
     tx = _build_transitions(merged, feats18, track="b",
-                            cohort=cohort, prop=None, split=split)
+                            cohort=cohort, prop=None, split=split,
+                            outcomes=_load_outcomes())
     if tx.empty:
         log.warning("No complete Track B transitions after waveform filtering.")
         return None
@@ -189,7 +275,12 @@ def _log_summary(tag: str, tx: pd.DataFrame, valid: set[int], out) -> None:
 
 
 def load_mdp(track: str = "a") -> dict:
-    """Load an MDP parquet into arrays for the RL trainer ('a' or 'b')."""
+    """Load an MDP parquet into arrays for the RL trainer ('a' or 'b').
+
+    The reward is recombined as ``reward_base + lam_causal * causal_unit`` using
+    the current config lam_causal, so the action-causal weight can be swept by
+    editing the config and retraining — no dataset rebuild needed (§14.4).
+    """
     path = config.PROCESSED_PATH / f"mdp_track_{track}.parquet"
     df = pd.read_parquet(path)
     feats = TABULAR if track == "a" else TABULAR + WAVEFORM
@@ -197,10 +288,11 @@ def load_mdp(track: str = "a") -> dict:
         "states": df[[f"s_{f}" for f in feats]].to_numpy(np.float32),
         "next_states": df[[f"ns_{f}" for f in feats]].to_numpy(np.float32),
         "actions": df["action"].to_numpy(np.int64),
-        "rewards": df["reward"].to_numpy(np.float32),
+        "rewards": recombined_reward(df, track),
         "dones": df["done"].to_numpy(bool),
         "split": df["split"].to_numpy(),
         "stay_id": df["stay_id"].to_numpy(np.int64),
+        "hour": df["hour"].to_numpy(np.int64) if "hour" in df.columns else np.zeros(len(df), np.int64),
         "weight_kg": df["weight_kg"].to_numpy(np.float32),
         "propensity_z": df["propensity_z"].to_numpy(np.float32),
         "feature_order": feats,

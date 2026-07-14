@@ -66,10 +66,14 @@ class FeatureAdapter(nn.Module):
         return s if self.identity else self.proj(s)
 
 
-def expectile_loss(delta: torch.Tensor, tau: float) -> torch.Tensor:
+def expectile_loss(delta: torch.Tensor, tau: float,
+                   sample_weight: torch.Tensor | None = None) -> torch.Tensor:
     weight = torch.where(delta < 0, torch.tensor(1 - tau, device=delta.device),
                          torch.tensor(tau, device=delta.device))
-    return (weight * delta ** 2).mean()
+    loss = weight * delta ** 2
+    if sample_weight is not None:
+        loss = loss * sample_weight
+    return loss.mean()
 
 
 @dataclass
@@ -79,15 +83,17 @@ class Batch:
     rewards: torch.Tensor
     next_states: torch.Tensor
     dones: torch.Tensor
+    weights: torch.Tensor | None = None      # per-transition IPW weights (§16 item 8)
 
 
 class HybridIQL:
     def __init__(self, state_dim: int, action_dim: int = 125, hidden_dim: int = 256,
                  gamma: float = 0.99, tau: float = 0.8, beta: float = 2.0,
                  lr: float = 3e-4, polyak: float = 0.005, latent_dim: int = 12,
-                 device: str = "cpu"):
+                 cql_alpha: float = 0.0, device: str = "cpu"):
         self.device = torch.device(device)
         self.gamma, self.tau, self.beta, self.polyak = gamma, tau, beta, polyak
+        self.cql_alpha = cql_alpha
         self.action_dim = action_dim
 
         self.adapter = FeatureAdapter(state_dim, latent_dim).to(self.device)
@@ -114,28 +120,46 @@ class HybridIQL:
         B = len(a)
         idx = torch.arange(B, device=self.device)
 
+        w = batch.weights                       # IPW weights (mean≈1) or None
+
         # V loss (expectile regression toward Q(s, a_taken))
         with torch.no_grad():
             q_taken = self.Q(s)[idx, a]
         v = self.V(s)
-        v_loss = expectile_loss(q_taken - v, self.tau)
+        v_loss = expectile_loss(q_taken - v, self.tau, w)
         self.opt_V.zero_grad(); v_loss.backward(); self.opt_V.step()
 
-        # Q loss (Bellman backup with target V)
+        # Q loss (Bellman backup with target V) + optional CQL conservatism.
+        # The CQL term pushes down Q(s, ·) for OOD actions relative to the taken
+        # action — logsumexp_a Q(s,a) - Q(s, a_taken) — so the greedy argmax stays
+        # within the data support instead of extrapolating to unseen actions.
         with torch.no_grad():
             v_next = self.V_target(self._phi(batch.next_states))
             y = batch.rewards + self.gamma * (1 - batch.dones) * v_next
-        q_taken2 = self.Q(self._phi(batch.states))[idx, a]
-        q_loss = F.mse_loss(q_taken2, y)
+        q_all = self.Q(self._phi(batch.states))
+        q_taken2 = q_all[idx, a]
+        # IPW-weighted Bellman regression (§16 item 8): down-weights the
+        # frequently-taken (confounded-by-indication) transitions. The CQL
+        # conservatism term stays unweighted — it is a support regulariser, not a
+        # data-distribution term.
+        if w is None:
+            q_loss = F.mse_loss(q_taken2, y)
+        else:
+            q_loss = (w * (q_taken2 - y) ** 2).mean()
+        if self.cql_alpha > 0:
+            cql_pen = (torch.logsumexp(q_all, dim=-1) - q_taken2).mean()
+            q_loss = q_loss + self.cql_alpha * cql_pen
         self.opt_Q.zero_grad(); q_loss.backward(); self.opt_Q.step()
 
-        # Policy loss (advantage-weighted BC)
+        # Policy loss (advantage-weighted BC), optionally × IPW weights
         with torch.no_grad():
             sd = self._phi(batch.states)
             adv = self.Q(sd)[idx, a] - self.V(sd)
-            w = torch.exp(adv / self.beta).clamp(max=100.0)
+            aw = torch.exp(adv / self.beta).clamp(max=100.0)
+            if w is not None:
+                aw = aw * w
         logp = F.log_softmax(self.pi(self._phi(batch.states)), dim=-1)[idx, a]
-        pi_loss = -(w * logp).mean()
+        pi_loss = -(aw * logp).mean()
         self.opt_pi.zero_grad(); pi_loss.backward(); self.opt_pi.step()
 
         # Polyak update of target V
@@ -157,6 +181,22 @@ class HybridIQL:
     def q_values(self, state: np.ndarray) -> np.ndarray:
         s = torch.as_tensor(state, dtype=torch.float32, device=self.device).reshape(1, -1)
         return self.Q(self._phi(s)).cpu().numpy().ravel()
+
+    @torch.no_grad()
+    def act_batch(self, states: np.ndarray, chunk: int = 65536) -> np.ndarray:
+        """Vectorised greedy action for a batch of states → int64 array (N,).
+
+        Equivalent to ``[self.act(s) for s in states]`` but as chunked batched
+        forward passes instead of one per row (the OPE/eval hot path — §16 item 9
+        vectorisation). Chunking bounds peak memory (Q is N×action_dim)."""
+        arr = np.asarray(states, dtype=np.float32)
+        if arr.ndim == 1:
+            arr = arr.reshape(1, -1)
+        out = np.empty(len(arr), dtype=np.int64)
+        for i in range(0, len(arr), chunk):
+            s = torch.as_tensor(arr[i:i + chunk], device=self.device)
+            out[i:i + chunk] = self.Q(self._phi(s)).argmax(dim=-1).cpu().numpy()
+        return out
 
     # --- persistence ---
     def state_dict(self) -> dict:

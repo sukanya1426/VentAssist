@@ -3,27 +3,38 @@
 Filter MIMIC-IV v3.1 to the eligible invasively-ventilated adult ICU cohort and
 emit one row per ventilation episode.
 
+Ventilation episodes come from ``procedureevents`` (itemid 225792, "Invasive
+Ventilation"), which records explicit ``starttime``/``endtime`` for every vent
+course. This is the ground-truth source for episode duration. The previous
+implementation inferred windows from sparse ``chartevents`` markers merged with a
+2 h gap, which fragmented real multi-day vent courses into ~7 h stubs and
+under-counted the cohort by ~10x (2,944 vs ~28,665 eligible episodes). No
+chartevents scan is needed at this stage any more.
+
 Pipeline:
-  1. Scan ``chartevents`` (chunked) for ventilation / ECMO / NIV / weight events.
-  2. Build continuous ventilation windows per stay (merge events < 2 h apart).
+  1. Read ``procedureevents`` invasive-ventilation intervals (small table).
+  2. Per stay, merge intervals separated by <= VENT_MERGE_GAP_HOURS and take the
+     longest continuous episode (one episode per stay → no within-patient leak).
   3. Apply inclusion (age >= 18, vent >= 6 continuous hours) and exclusion
-     (cardiac arrest, ECMO, NIV-only) criteria.
+     (cardiac arrest, ECMO) criteria. (NIV-only is excluded implicitly: only
+     stays with an invasive-vent procedure are considered.)
   4. Truncate episodes to the first 72 hours.
-  5. Derive admission weight and a (proxy) sepsis flag.
+  5. Derive admission weight (procedureevents ``patientweight``) and a (proxy)
+     sepsis flag.
   6. Write ``data/processed/cohort.csv``.
 
 Output columns:
-  [subject_id, hadm_id, stay_id, vent_start, vent_end, age, weight_kg, sepsis_flag]
+  [subject_id, hadm_id, stay_id, vent_start, vent_end, age, weight_kg,
+   sepsis_flag, patient_known, age_imputed]
 
 Notes / simplifications:
   * ``sepsis_flag`` uses an ICD-code proxy for sepsis rather than a full Sepsis-3
-    (SOFA >= 2 + suspected infection) computation, which would require assembling
-    SOFA component labs/vitals. Documented here and logged.
+    computation. Documented here and logged.
   * ``age`` uses ``patients.anchor_age`` (the standard MIMIC-IV de-identified age).
 
 Run directly:
     python -m backend.pipeline.cohort                # full run
-    python -m backend.pipeline.cohort --sample       # fast sample run
+    python -m backend.pipeline.cohort --max-stays 5000   # capped run
 """
 
 from __future__ import annotations
@@ -39,95 +50,49 @@ from backend.pipeline.logging_utils import get_logger
 
 log = get_logger("cohort")
 
-# Union of itemids we need from the (huge) chartevents scan.
-_SCAN_ITEMIDS = set(
-    config.VENT_ITEMIDS
-    + config.ECMO_ITEMIDS
-    + config.NIV_ITEMIDS
-    + config.WEIGHT_ITEMIDS
-)
-_VENT_SET = set(config.VENT_ITEMIDS)
-_ECMO_SET = set(config.ECMO_ITEMIDS)
-_NIV_SET = set(config.NIV_ITEMIDS)
-_WEIGHT_SET = set(config.WEIGHT_ITEMIDS)
-
 # Sepsis ICD proxy codes (prefix match).
 _SEPSIS_ICD9 = ("99591", "99592", "78552")
 _SEPSIS_ICD10 = ("A40", "A41", "R652")
 
 
 # --------------------------------------------------------------------------- #
-# Step 1 — scan chartevents for the events we care about
+# Interval merging — longest continuous vent episode per stay
 # --------------------------------------------------------------------------- #
-def scan_chartevents(sample_chunks: Optional[int] = None) -> pd.DataFrame:
-    """Chunked scan of chartevents, keeping only rows whose itemid is relevant.
+def _longest_episode(intervals: np.ndarray,
+                     gap_h: float) -> Optional[tuple[pd.Timestamp, pd.Timestamp]]:
+    """Merge [start, end] intervals separated by <= gap_h and return the longest.
 
     Args:
-        sample_chunks: if set, stop after this many chunks (fast sample mode).
-
-    Returns:
-        DataFrame with columns [stay_id, charttime, itemid, valuenum].
+        intervals: array shape (n, 2) of datetime64 [start, end] pairs.
+        gap_h: merge two intervals if the second starts within this many hours
+            of the running end (treats brief disconnections as one episode).
     """
-    log.info("Scanning chartevents (%s)…",
-             f"sample: first {sample_chunks} chunks" if sample_chunks else "full")
-    collected: list[pd.DataFrame] = []
-    reader = pd.read_csv(
-        config.CHARTEVENTS,
-        chunksize=config.CHUNK_SIZE,
-        usecols=["stay_id", "charttime", "itemid", "valuenum"],
-        dtype={"stay_id": "Int64", "itemid": "Int64", "valuenum": "float64"},
-        parse_dates=["charttime"],
-    )
-    for i, chunk in enumerate(reader):
-        hit = chunk[chunk["itemid"].isin(_SCAN_ITEMIDS)]
-        if not hit.empty:
-            collected.append(hit)
-        if sample_chunks is not None and (i + 1) >= sample_chunks:
-            break
-        if (i + 1) % 50 == 0:
-            log.info("  …processed %d chunks", i + 1)
-
-    if not collected:
-        raise ValueError("No relevant chartevents rows found in the scanned range.")
-    events = pd.concat(collected, ignore_index=True)
-    events = events.dropna(subset=["stay_id", "charttime"])
-    events["stay_id"] = events["stay_id"].astype(int)
-    events["itemid"] = events["itemid"].astype(int)
-    log.info("Collected %d relevant chartevents rows across %d stays.",
-             len(events), events["stay_id"].nunique())
-    return events
-
-
-# --------------------------------------------------------------------------- #
-# Step 2 — continuous ventilation windows
-# --------------------------------------------------------------------------- #
-def _longest_vent_window(times: pd.Series) -> Optional[tuple[pd.Timestamp, pd.Timestamp]]:
-    """Merge timestamps separated by <= VENT_MERGE_GAP_HOURS, return longest window."""
-    times = times.sort_values().to_numpy()
-    if len(times) == 0:
+    if len(intervals) == 0:
         return None
-    gap = np.timedelta64(config.VENT_MERGE_GAP_HOURS, "h")
-    best: Optional[tuple] = None
-    start = prev = times[0]
-    for t in times[1:]:
-        if t - prev > gap:
-            best = _keep_longer(best, (start, prev))
-            start = t
-        prev = t
-    best = _keep_longer(best, (start, prev))
+    order = np.argsort(intervals[:, 0])
+    intervals = intervals[order]
+    gap = np.timedelta64(int(gap_h * 60), "m")
+    best = None
+    cur_start, cur_end = intervals[0]
+    for start, end in intervals[1:]:
+        if start - cur_end <= gap:
+            if end > cur_end:
+                cur_end = end
+        else:
+            best = _keep_longer(best, (cur_start, cur_end))
+            cur_start, cur_end = start, end
+    best = _keep_longer(best, (cur_start, cur_end))
     return best
 
 
 def _keep_longer(a, b):
     if a is None:
         return b
-    if (b[1] - b[0]) > (a[1] - a[0]):
-        return b
-    return a
+    return b if (b[1] - b[0]) > (a[1] - a[0]) else a
 
 
 # --------------------------------------------------------------------------- #
-# Step 5 — sepsis ICD proxy
+# ICD proxies
 # --------------------------------------------------------------------------- #
 def _sepsis_hadm_ids() -> set[int]:
     """hadm_ids with a sepsis ICD code (proxy for Sepsis-3)."""
@@ -161,15 +126,16 @@ def _cardiac_arrest_hadm_ids() -> set[int]:
 def build_cohort(sample_chunks: Optional[int] = None,
                  max_stays: Optional[int] = None,
                  allow_missing_patients: Optional[bool] = None) -> pd.DataFrame:
-    """Build and persist the eligible ventilation cohort.
+    """Build and persist the eligible ventilation cohort from procedureevents.
 
     Args:
-        sample_chunks: cap chartevents scan to this many chunks (sample mode).
+        sample_chunks: ignored (kept for API compatibility; procedureevents is a
+            small table read in full).
         max_stays: cap the final cohort to this many stays (sample mode).
         allow_missing_patients: degraded fallback for an incomplete patients
             table. When True, ICU subjects with no patient record are KEPT
             (MIMIC-IV is adult-only) with imputed age and ``patient_known=0``.
-            When None (default), it AUTO-ENABLES if < 50% of ICU subjects have a
+            When None (default), AUTO-ENABLES if < 50% of ICU subjects have a
             patient record — so dropping in a complete patients.csv later
             restores normal behaviour automatically.
     """
@@ -203,20 +169,26 @@ def build_cohort(sample_chunks: Optional[int] = None,
     median_age = int(known_ages[known_ages >= config.MIN_AGE].median()) \
         if known_ages.notna().any() else 65
 
-    events = scan_chartevents(sample_chunks=sample_chunks)
-
-    # --- weight per stay (median admission weight) ---
-    weights = (
-        events[events["itemid"].isin(_WEIGHT_SET)]
-        .groupby("stay_id")["valuenum"].median()
+    # --- procedureevents: invasive-vent intervals + ECMO markers ---
+    log.info("Reading procedureevents (ventilation intervals)…")
+    pe = pd.read_csv(
+        config.PROCEDUREEVENTS,
+        usecols=["stay_id", "itemid", "starttime", "endtime", "patientweight"],
+        dtype={"stay_id": "Int64", "itemid": "Int64", "patientweight": "float64"},
+        parse_dates=["starttime", "endtime"],
     )
-    pop_weight = float(weights.median()) if not weights.empty else 80.0
+    pe = pe.dropna(subset=["stay_id", "starttime", "endtime"])
+    pe["stay_id"] = pe["stay_id"].astype(int)
 
-    # --- per-stay event sets for exclusion logic ---
-    vent_ev = events[events["itemid"].isin(_VENT_SET)]
-    stays_with_ecmo = set(events.loc[events["itemid"].isin(_ECMO_SET), "stay_id"].unique())
-    stays_with_niv = set(events.loc[events["itemid"].isin(_NIV_SET), "stay_id"].unique())
-    stays_with_invasive = set(vent_ev["stay_id"].unique())
+    inv = pe[pe["itemid"] == config.VENT_PROC_ITEMID]
+    ecmo_stays = set(pe.loc[pe["itemid"].isin(config.ECMO_PROC_ITEMIDS),
+                            "stay_id"].unique())
+    log.info("Invasive-vent procedure rows: %d across %d stays (ECMO stays: %d).",
+             len(inv), inv["stay_id"].nunique(), len(ecmo_stays))
+
+    # population-median weight (clipped to a plausible adult range) for fallback
+    pw = inv["patientweight"].clip(20.0, 400.0)
+    pop_weight = float(pw.median()) if pw.notna().any() else 80.0
 
     sepsis_hadm = _sepsis_hadm_ids()
     arrest_hadm = _cardiac_arrest_hadm_ids()
@@ -227,22 +199,24 @@ def build_cohort(sample_chunks: Optional[int] = None,
     skipped: dict[str, int] = {}
     rows: list[dict] = []
 
-    for stay_id, grp in vent_ev.groupby("stay_id"):
-        window = _longest_vent_window(grp["charttime"])
+    for stay_id, grp in inv.groupby("stay_id"):
+        if stay_id not in icu_map.index:
+            skipped["no_icustay"] = skipped.get("no_icustay", 0) + 1
+            continue
+
+        window = _longest_episode(
+            grp[["starttime", "endtime"]].to_numpy(),
+            gap_h=config.VENT_MERGE_GAP_HOURS)
         if window is None:
             skipped["no_window"] = skipped.get("no_window", 0) + 1
             continue
         vent_start, vent_end = window
 
-        # vent duration >= 6 h
         dur_h = (vent_end - vent_start) / np.timedelta64(1, "h")
         if dur_h < config.MIN_VENT_HOURS:
             skipped["short_vent"] = skipped.get("short_vent", 0) + 1
             continue
 
-        if stay_id not in icu_map.index:
-            skipped["no_icustay"] = skipped.get("no_icustay", 0) + 1
-            continue
         srow = icu_map.loc[stay_id]
         subject_id = int(srow["subject_id"])
         hadm_id = int(srow["hadm_id"]) if not pd.isna(srow["hadm_id"]) else None
@@ -260,16 +234,12 @@ def build_cohort(sample_chunks: Optional[int] = None,
             if not allow_missing_patients:
                 skipped["no_patient"] = skipped.get("no_patient", 0) + 1
                 continue
-            # MIMIC-IV is adult-only — keep with imputed age.
             age = median_age
             age_imputed = True
 
         # exclusions
-        if stay_id in stays_with_ecmo:
+        if stay_id in ecmo_stays:
             skipped["ecmo"] = skipped.get("ecmo", 0) + 1
-            continue
-        if (stay_id in stays_with_niv) and (stay_id not in stays_with_invasive):
-            skipped["niv_only"] = skipped.get("niv_only", 0) + 1
             continue
         if hadm_id is not None and hadm_id in arrest_hadm:
             skipped["cardiac_arrest"] = skipped.get("cardiac_arrest", 0) + 1
@@ -280,9 +250,8 @@ def build_cohort(sample_chunks: Optional[int] = None,
         if vent_end > max_end:
             vent_end = max_end
 
-        weight_kg = float(weights.get(stay_id, np.nan))
-        if np.isnan(weight_kg):
-            weight_kg = pop_weight
+        w = grp["patientweight"].clip(20.0, 400.0).median()
+        weight_kg = float(w) if not pd.isna(w) else pop_weight
 
         rows.append({
             "subject_id": subject_id,
@@ -312,21 +281,21 @@ def build_cohort(sample_chunks: Optional[int] = None,
     out = config.PROCESSED_PATH / "cohort.csv"
     cohort.to_csv(out, index=False)
     log.info("Wrote cohort: %d episodes → %s", len(cohort), out)
-    log.info("  age median=%.0f, sepsis rate=%.2f, mean vent dur(h)=%.1f, "
-             "patient_known=%.1f%% (age imputed for %d)",
+    dur = ((pd.to_datetime(cohort["vent_end"]) - pd.to_datetime(cohort["vent_start"]))
+           / pd.Timedelta(hours=1))
+    log.info("  age median=%.0f, sepsis rate=%.2f, vent dur(h) median=%.1f "
+             "mean=%.1f max=%.1f | patient_known=%.1f%% (age imputed for %d)",
              cohort["age"].median(), cohort["sepsis_flag"].mean(),
-             ((pd.to_datetime(cohort["vent_end"]) - pd.to_datetime(cohort["vent_start"]))
-              / pd.Timedelta(hours=1)).mean(),
-             100 * cohort["patient_known"].mean(), int((cohort["age_imputed"] == 1).sum()))
+             dur.median(), dur.mean(), dur.max(),
+             100 * cohort["patient_known"].mean(),
+             int((cohort["age_imputed"] == 1).sum()))
     return cohort
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Build the ventilation cohort.")
     ap.add_argument("--sample", action="store_true",
-                    help="Fast sample run (limited chartevents scan).")
-    ap.add_argument("--sample-chunks", type=int, default=60,
-                    help="Chartevents chunks to scan in sample mode.")
+                    help="Fast sample run (caps cohort to --max-stays).")
     ap.add_argument("--max-stays", type=int, default=None,
                     help="Cap the cohort size.")
     ap.add_argument("--allow-missing-patients", dest="allow_missing", default=None,
@@ -335,8 +304,7 @@ def main() -> None:
                          "(auto-detected by default).")
     args = ap.parse_args()
     build_cohort(
-        sample_chunks=args.sample_chunks if args.sample else None,
-        max_stays=args.max_stays,
+        max_stays=args.max_stays if args.max_stays else (2000 if args.sample else None),
         allow_missing_patients=args.allow_missing,
     )
 

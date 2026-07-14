@@ -40,6 +40,22 @@ def make_split(stay_ids: Iterable[int], name: str = _DEFAULT_SPLIT) -> dict[str,
     return split
 
 
+def make_kfold(stay_ids: Iterable[int], k: int = 5,
+               name: str = "kfold_split.json") -> list[list[int]]:
+    """Partition stay_ids into k disjoint patient-level folds (deterministic).
+
+    Returns a list of k lists of stay_ids (the held-out test stays for each
+    fold). Persisted so the CV partition is reproducible across runs.
+    """
+    ids = sorted({int(s) for s in stay_ids})
+    rng = np.random.default_rng(config.SPLIT_SEED)
+    rng.shuffle(ids)
+    folds = [sorted(int(s) for s in part) for part in np.array_split(ids, k)]
+    config.ensure_output_dirs()
+    _path(name).write_text(json.dumps({"k": k, "folds": folds}, indent=2))
+    return folds
+
+
 def load_split(name: str = _DEFAULT_SPLIT) -> dict[str, list[int]]:
     """Load the persisted split, creating nothing — raises if absent."""
     p = _path(name)

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from datetime import datetime, timezone
 
 import numpy as np
 import torch
@@ -32,7 +33,8 @@ def _load_policy(track: str):
 
 
 def fitted_q_evaluation(track: str = "a", K: int = 50, gamma: float = 0.99,
-                        epochs_per_iter: int = 40, device: str = "cpu") -> dict:
+                        batch_size: int = 8192, steps_per_iter: int = 200,
+                        device: str = "cpu") -> dict:
     d = D.load_mdp(track)
     feats = d["feature_order"]
     nf = "normaliser_stats.json" if track == "a" else "normaliser_stats_track_b.json"
@@ -41,8 +43,8 @@ def fitted_q_evaluation(track: str = "a", K: int = 50, gamma: float = 0.99,
     NS = N.transform(d["next_states"], stats, feats).astype(np.float32)
 
     policy, ckpt = _load_policy(track)
-    # policy's greedy next action
-    pi_next = np.array([policy.act(s) for s in NS], dtype=np.int64)
+    # policy's greedy next action (batched — was a per-row Python loop over ~1M)
+    pi_next = policy.act_batch(NS)
 
     test = np.where(d["split"] == "test")[0]
     if len(test) == 0:
@@ -62,14 +64,20 @@ def fitted_q_evaluation(track: str = "a", K: int = 50, gamma: float = 0.99,
     opt = torch.optim.Adam(q.parameters(), lr=1e-3)
     idx = torch.arange(len(A), device=dev)
 
+    # Fitted-Q iteration with a target network. The inner optimisation is now
+    # mini-batch SGD (was full-batch over all ~1M rows every epoch), which is the
+    # standard FQE recipe and ~an order of magnitude less compute per outer step.
+    Nrows = len(A)
+    bs = min(batch_size, Nrows)
+    gen = torch.Generator(device=dev).manual_seed(0)
     prev = None
     for k in range(K):
         with torch.no_grad():
-            qn = q_target(NSt)[idx, PiN]
-            y = R + gamma * (1 - Dn) * qn
-        for _ in range(epochs_per_iter):
-            qa = q(St)[idx, A]
-            loss = F.mse_loss(qa, y)
+            y = R + gamma * (1 - Dn) * q_target(NSt)[idx, PiN]     # fixed targets
+        for _ in range(steps_per_iter):
+            b = torch.randint(0, Nrows, (bs,), generator=gen, device=dev)
+            qa = q(St[b])[torch.arange(bs, device=dev), A[b]]
+            loss = F.mse_loss(qa, y[b])
             opt.zero_grad(); loss.backward(); opt.step()
         q_target.load_state_dict(q.state_dict())
         with torch.no_grad():
@@ -81,13 +89,15 @@ def fitted_q_evaluation(track: str = "a", K: int = 50, gamma: float = 0.99,
 
     # V̂ over episode-initial states (hour==0 proxy: first transition per stay in test)
     with torch.no_grad():
-        pi_test = torch.as_tensor([policy.act(S[i]) for i in test],
+        pi_test = torch.as_tensor(policy.act_batch(S[test]),
                                   dtype=torch.long, device=dev)
         v = q(St[torch.as_tensor(test, device=dev)])[torch.arange(len(test)), pi_test]
     v_hat = float(v.mean())
     v_std = float(v.std())
-    result = {"track": track, "V_hat": round(v_hat, 4), "V_std": round(v_std, 4),
-              "n_test": int(len(test)), "K": K, "gamma": gamma}
+    result = {"track": track, "V_hat": round(v_hat, 4), "v_hat": round(v_hat, 4),
+              "V_std": round(v_std, 4), "n_test": int(len(test)),
+              "n_transitions": int(len(d["actions"])), "K": K, "gamma": gamma,
+              "timestamp": datetime.now(timezone.utc).isoformat()}
     (config.LOGS_PATH / f"fqe_track_{track}.json").write_text(json.dumps(result, indent=2))
     log.info("FQE Track %s: V̂=%.4f ± %.4f (n=%d)", track.upper(), v_hat, v_std, len(test))
     return result
