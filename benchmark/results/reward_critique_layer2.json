@@ -1,0 +1,174 @@
+{
+  "layer": 2,
+  "description": "same HybridIQL+CQL architecture and MDP; ONLY the reward differs",
+  "steps": 30000,
+  "seed": 0,
+  "n_transitions": 992100,
+  "intellilung_range_reward": {
+    "q_spread_max_minus_min": 23.0305,
+    "q_top2_margin": 0.2682,
+    "distinct_actions_used": 23,
+    "hold_share": 0.859,
+    "agreement_with_clinician": 0.6812,
+    "battery_passed": "3/8",
+    "battery": {
+      "stable": {
+        "expect": "hold",
+        "action": [
+          0,
+          0,
+          0.0
+        ],
+        "pass": true
+      },
+      "hypoxaemic": {
+        "expect": "raise PEEP or FiO2",
+        "action": [
+          0,
+          0,
+          0.0
+        ],
+        "pass": false
+      },
+      "hyperoxic": {
+        "expect": "lower FiO2",
+        "action": [
+          -2,
+          0,
+          -0.1
+        ],
+        "pass": true
+      },
+      "hypercapnic": {
+        "expect": "raise TV",
+        "action": [
+          0,
+          0,
+          0.0
+        ],
+        "pass": false
+      },
+      "hypocapnic": {
+        "expect": "lower TV",
+        "action": [
+          -2,
+          0,
+          0.0
+        ],
+        "pass": false
+      },
+      "high_peep": {
+        "expect": "lower PEEP",
+        "action": [
+          0,
+          0,
+          0.0
+        ],
+        "pass": false
+      },
+      "low_peep": {
+        "expect": "raise PEEP",
+        "action": [
+          0,
+          0,
+          0.1
+        ],
+        "pass": false
+      },
+      "volutrauma": {
+        "expect": "cut TV",
+        "action": [
+          -2,
+          -50,
+          0.0
+        ],
+        "pass": true
+      }
+    },
+    "best_val_q": 0.5846
+  },
+  "ventassist_reward": {
+    "q_spread_max_minus_min": 25.5732,
+    "q_top2_margin": 0.4525,
+    "distinct_actions_used": 49,
+    "hold_share": 0.6904,
+    "agreement_with_clinician": 0.5713,
+    "battery_passed": "8/8",
+    "battery": {
+      "stable": {
+        "expect": "hold",
+        "action": [
+          0,
+          0,
+          0.0
+        ],
+        "pass": true
+      },
+      "hypoxaemic": {
+        "expect": "raise PEEP or FiO2",
+        "action": [
+          2,
+          0,
+          0.0
+        ],
+        "pass": true
+      },
+      "hyperoxic": {
+        "expect": "lower FiO2",
+        "action": [
+          0,
+          0,
+          -0.1
+        ],
+        "pass": true
+      },
+      "hypercapnic": {
+        "expect": "raise TV",
+        "action": [
+          0,
+          25,
+          0.0
+        ],
+        "pass": true
+      },
+      "hypocapnic": {
+        "expect": "lower TV",
+        "action": [
+          0,
+          -50,
+          0.0
+        ],
+        "pass": true
+      },
+      "high_peep": {
+        "expect": "lower PEEP",
+        "action": [
+          -2,
+          0,
+          0.0
+        ],
+        "pass": true
+      },
+      "low_peep": {
+        "expect": "raise PEEP",
+        "action": [
+          2,
+          0,
+          0.0
+        ],
+        "pass": true
+      },
+      "volutrauma": {
+        "expect": "cut TV",
+        "action": [
+          0,
+          -50,
+          0.0
+        ],
+        "pass": true
+      }
+    },
+    "best_val_q": 1.4809
+  },
+  "timestamp": "2026-07-14T21:00:14.703550+00:00"
+}

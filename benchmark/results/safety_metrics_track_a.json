@@ -1,0 +1,37 @@
+{
+  "track": "a",
+  "n_test": 198050,
+  "n_transitions": 992100,
+  "policy": {
+    "volutrauma_tv_gt_8ml_per_kg": 0.1225,
+    "peep_gt_15": 0.0207,
+    "fio2_gt_0.8": 0.0414,
+    "needless_hyperoxia_fio2_ge_0.95_and_spo2_ge_96": 0.0006,
+    "peep_below_ardsnet_min_for_fio2": 0.2471,
+    "any_violation": 0.3599,
+    "driving_pressure_gt_15": null
+  },
+  "clinician": {
+    "volutrauma_tv_gt_8ml_per_kg": 0.1338,
+    "peep_gt_15": 0.0243,
+    "fio2_gt_0.8": 0.0489,
+    "needless_hyperoxia_fio2_ge_0.95_and_spo2_ge_96": 0.0143,
+    "peep_below_ardsnet_min_for_fio2": 0.2659,
+    "any_violation": 0.3872,
+    "driving_pressure_gt_15": null
+  },
+  "delta_policy_minus_clinician": {
+    "volutrauma_tv_gt_8ml_per_kg": -0.0113,
+    "peep_gt_15": -0.0036,
+    "fio2_gt_0.8": -0.0075,
+    "needless_hyperoxia_fio2_ge_0.95_and_spo2_ge_96": -0.0137,
+    "peep_below_ardsnet_min_for_fio2": -0.0188,
+    "any_violation": -0.0273,
+    "driving_pressure_gt_15": null
+  },
+  "notes": {
+    "driving_pressure_gt_15": "requires airway-pressure waveform (not available) \u2014 not imputed",
+    "encoding": "policy scored with transform_inference (serving encoding)"
+  },
+  "timestamp": "2026-07-14T21:02:16.912543+00:00"
+}
