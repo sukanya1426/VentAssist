@@ -44,26 +44,43 @@ def test_remap_rare():
     assert remapped.iloc[-1] in valid
 
 
-def test_reward_hypoxaemic_band():
-    s_t = {"SpO2": 90, "TV": 500, "FiO2": 0.5, "PEEP": 8}
-    assert abs(R.tier1_reward(s_t, {"SpO2": 93}, 70) - (-2 / 7)) < 1e-6
-    assert R.tier1_reward(s_t, {"SpO2": 98}, 70) == 0.0   # hyperoxia → 0 shaping
+_STABLE = {"SpO2": 94, "PaCO2": 40, "TV": 450, "FiO2": 0.4, "PEEP": 8}
 
 
-def test_reward_penalties():
-    s_bad = {"SpO2": 90, "TV": 700, "FiO2": 0.9, "PEEP": 16}
-    r = R.tier1_reward(s_bad, {"SpO2": 93}, 70)
-    assert abs(r - (-2 / 7 - 0.3 - 0.5)) < 1e-6
+def test_reward_hold_when_stable():
+    # in-band, no change → exactly zero reward (the optimal default)
+    assert abs(R.tier1_reward(_STABLE, _STABLE, (0, 0, 0.0), 70)) < 1e-9
+
+
+def test_reward_action_cost():
+    # needless change while stable is penalised by the action cost only
+    r = R.tier1_reward(_STABLE, _STABLE, (1, 25, 0.05), 70)
+    assert abs(r - (-0.3)) < 1e-9          # 0.1*1 + 0.1*(25/25) + 0.1*(0.05/0.05)
+
+
+def test_reward_oxygenation_gain():
+    s_t = {**_STABLE, "SpO2": 85}
+    s_n = {**_STABLE, "SpO2": 92, "FiO2": 0.45}
+    r = R.tier1_reward(s_t, s_n, (0, 0, 0.05), 70)
+    # Δoxy = f(92)-f(85) = 0-(-7) = 7; cost 0.1; +0.4 action-causal bonus for
+    # raising FiO2 while hypoxaemic (SpO2 85 < 92) and not yet maxed (FiO2 < 0.8).
+    assert abs(r - (7.0 - 0.1 + 0.4)) < 1e-9
+
+
+def test_reward_safety_penalties():
+    s_n = {**_STABLE, "TV": 650, "FiO2": 0.9, "PEEP": 16}   # volutrauma+O2tox+highPEEP
+    r = R.tier1_reward(_STABLE, s_n, (2, 50, 0.10), 70)
+    cost = 0.1 * 2 + 0.1 * (50 / 25) + 0.1 * (0.10 / 0.05)  # 0.6
+    safety = 0.5 + 0.3 + 0.3                                # 1.1
+    assert abs(r - (-cost - safety)) < 1e-9
 
 
 def test_tier2_extra_penalties():
-    s_t = {"SpO2": 90, "TV": 500, "FiO2": 0.5, "PEEP": 8,
-           "Asynchrony_Score": 1.0, "Arrhythmia_rate": 0.3}
-    base = R.tier1_reward(s_t, {"SpO2": 93}, 70)
-    assert abs(R.tier2_reward(s_t, {"SpO2": 93}, 70) - (base - 0.2 - 0.15)) < 1e-6
-    # missing waveform → equals tier1
-    clean = {"SpO2": 90, "TV": 500, "FiO2": 0.5, "PEEP": 8}
-    assert abs(R.tier2_reward(clean, {"SpO2": 93}, 70) - base) < 1e-6
+    s_t = {**_STABLE, "Asynchrony_Score": 1.0, "Arrhythmia_rate": 0.3}
+    base = R.tier1_reward(s_t, s_t, (0, 0, 0.0), 70)
+    assert abs(R.tier2_reward(s_t, s_t, (0, 0, 0.0), 70) - (base - 0.2 - 0.15)) < 1e-9
+    # missing waveform → equals tier1 (0 here)
+    assert abs(R.tier2_reward(_STABLE, _STABLE, (0, 0, 0.0), 70)) < 1e-9
 
 
 def test_normaliser_roundtrip():

@@ -11,6 +11,8 @@ export interface RecommendationRequest {
   patient_weight: number;
   track: Track;
   tabular_state: TabularState;
+  responsiveness?: number;   // 0 = conservative deployed policy, 1 = most eager to act
+  ventilation_mode?: string | null;   // "volume_control" | "pressure_control" | null
   ecg_features?: { HRV_SDNN?: number | null; Arrhythmia_rate?: number | null };
   pleth_features?: { Perfusion_Index?: number | null };
   resp_features?: {
@@ -22,9 +24,22 @@ export interface TrackInfo {
   track: Track;
   track_label: string;
   confidence: number;
+  decision_margin?: number | null;
   waveform_used: boolean;
   waveform_coverage?: number | null;
   imputation_used?: boolean | null;
+  ventilation_mode?: string | null;
+  tv_masked?: boolean | null;
+  in_support?: boolean | null;
+  support_ratio?: number | null;
+}
+
+export interface AlternativeAction {
+  delta_PEEP: number;
+  delta_TV: number;
+  delta_FiO2: number;
+  action_text: string;
+  margin_from_best: number;
 }
 
 export interface SHAPEntry {
@@ -40,6 +55,7 @@ export interface RecommendationResponse {
     delta_FiO2: number;
     action_text: string;
     track_info: TrackInfo;
+    alternatives: AlternativeAction[];
   };
   safety: { all_clear: boolean; flags: SafetyFlag[] };
   explanation: { top_features: SHAPEntry[]; decision_rule: string };

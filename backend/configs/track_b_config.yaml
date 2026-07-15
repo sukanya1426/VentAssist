@@ -17,6 +17,11 @@ reward:
   lam1: 0.3
   lam2: 0.2
   lam3: 0.15
+  lam_causal: 0.4   # action-causal bonus (§14.4 fix); sweep [0.2, 0.4, 0.6, 0.8]
+  # Terminal outcome reward (mortality + VFD); 0.0 = DISABLED (default). See
+  # track_a_config.yaml for the enable procedure (rebuild → retrain → verify).
+  w_outcome: 0.0
+  outcome_horizon_days: 28
 
 cql:
-  alpha: 0.25
+  alpha: 0.5   # conservatism weight in the HybridIQL Q-loss (keeps argmax in-distribution)

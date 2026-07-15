@@ -33,7 +33,8 @@ async def recommend(req: M.RecommendationRequest) -> M.RecommendationResponse:
 
     try:
         if req.track == "track_a":
-            routing = svc.router.run_track_a(ts)
+            routing = svc.router.run_track_a(ts, responsiveness=req.responsiveness,
+                                             ventilation_mode=req.ventilation_mode)
         else:
             wv = {}
             if req.ecg_features:
@@ -45,7 +46,8 @@ async def recommend(req: M.RecommendationRequest) -> M.RecommendationResponse:
             wv = {k: wv.get(k) for k in
                   ["HRV_SDNN", "Arrhythmia_rate", "Perfusion_Index",
                    "RRV", "Breathing_Regularity", "Asynchrony_Score"]}
-            routing = svc.router.run_track_b(ts, wv)
+            routing = svc.router.run_track_b(ts, wv, responsiveness=req.responsiveness,
+                                             ventilation_mode=req.ventilation_mode)
     except RuntimeError as e:
         raise HTTPException(status_code=409, detail=str(e))
 
@@ -62,13 +64,27 @@ async def recommend(req: M.RecommendationRequest) -> M.RecommendationResponse:
 
     info = M.TrackInfo(track=routing["track"], track_label=routing["track_label"],
                        confidence=routing["confidence"],
+                       decision_margin=routing.get("decision_margin"),
                        waveform_used=routing["waveform_used"],
                        waveform_coverage=routing.get("waveform_coverage"),
-                       imputation_used=routing.get("imputation_used"))
+                       imputation_used=routing.get("imputation_used"),
+                       ventilation_mode=routing.get("ventilation_mode"),
+                       tv_masked=routing.get("tv_masked"),
+                       in_support=routing.get("in_support"),
+                       support_ratio=routing.get("support_ratio"))
+    alternatives = [
+        M.AlternativeAction(
+            delta_PEEP=a["delta_PEEP"], delta_TV=a["delta_TV"],
+            delta_FiO2=a["delta_FiO2"],
+            action_text=_action_text(a["delta_PEEP"], a["delta_TV"], a["delta_FiO2"]),
+            margin_from_best=round(a["margin_from_best"], 4))
+        for a in routing.get("alternatives", [])
+    ]
     return M.RecommendationResponse(
         recommendation=M.Recommendation(
             delta_PEEP=dp, delta_TV=dt, delta_FiO2=df,
-            action_text=_action_text(dp, dt, df), track_info=info),
+            action_text=_action_text(dp, dt, df), track_info=info,
+            alternatives=alternatives),
         safety=M.Safety(all_clear=safety.all_clear,
                         flags=[M.SafetyFlag(**f) for f in safety.flags]),
         explanation=M.Explanation(

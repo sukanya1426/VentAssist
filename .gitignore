@@ -1,8 +1,14 @@
 # ---- Raw data (lives outside the project conceptually; never commit) ----
-files/
-**/files/
-Summary.md
+# files/
+# **/files/
+
 .claude
+files/
+eicu-collaborative-research-database-2.0
+
+IMPLEMENTATION_NOTES.md
+SUMMARY.md
+
 # ---- Pipeline outputs & trained models ----
 backend/data/processed/*
 !backend/data/processed/.gitkeep
@@ -15,6 +21,8 @@ backend/logs/*
 *.pt
 *.db
 ventassist.db
+frontend/node_modules/
+**/node_modules/
 
 # ---- Environments ----
 .venv/

@@ -3,6 +3,7 @@ import { useStore } from "../store/useStore";
 import { TrackBadge } from "../components/shared/TrackBadge";
 import { ConfidenceBar } from "../components/recommendation/ConfidenceBar";
 import { TrackSelector } from "../components/recommendation/TrackSelector";
+import { PATIENT_PRESETS, CUSTOM_LABEL } from "../data/patientPresets";
 import type { TabularState } from "../types/recommendation";
 
 const FIELDS: [keyof TabularState, string, number][] = [
@@ -27,7 +28,29 @@ export function Dashboard() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* ---- Inputs ---- */}
         <section className="rounded-xl bg-white p-5 shadow-sm">
-          <h2 className="mb-3 font-semibold">Patient State</h2>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 className="font-semibold">Patient State</h2>
+            <label className="flex items-center gap-2 text-xs text-slate-500">
+              Preset
+              <select
+                value={s.presetKey}
+                onChange={(e) => s.loadPreset(e.target.value)}
+                className="rounded border border-slate-300 px-2 py-1 text-sm text-slate-800"
+              >
+                {s.presetKey === CUSTOM_LABEL && (
+                  <option value={CUSTOM_LABEL} disabled>{CUSTOM_LABEL}</option>
+                )}
+                {PATIENT_PRESETS.map((p) => (
+                  <option key={p.key} value={p.key}>{p.label}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+          {s.presetKey !== CUSTOM_LABEL && (
+            <p className="mb-3 text-xs text-slate-400">
+              {PATIENT_PRESETS.find((p) => p.key === s.presetKey)?.hint}
+            </p>
+          )}
           <div className="grid grid-cols-3 gap-3">
             {FIELDS.map(([k, label, step]) => (
               <label key={k} className="text-xs text-slate-500">
@@ -53,6 +76,41 @@ export function Dashboard() {
           <TrackSelector current={s.selectedTrack}
             onSelect={(t) => s.setMeta({ selectedTrack: t })}
             waveformAvailable={s.waveformAvailable} />
+
+          <div className="mt-4">
+            <div className="flex items-center justify-between text-xs text-slate-500">
+              <span>Responsiveness</span>
+              <span className="font-semibold text-slate-700">
+                {s.responsiveness === 0 ? "Conservative (deployed)"
+                  : `${Math.round(s.responsiveness * 100)}% eager to act`}
+              </span>
+            </div>
+            <input type="range" min={0} max={1} step={0.05} value={s.responsiveness}
+              onChange={(e) => s.setMeta({ responsiveness: parseFloat(e.target.value) })}
+              className="mt-1 w-full accent-blue-600" />
+            <p className="mt-1 text-xs text-slate-400">
+              Lowers the bar to leave “hold” — never changes which change is chosen when acting,
+              and the safety filter still applies.
+            </p>
+          </div>
+
+          <div className="mt-4">
+            <label className="flex items-center justify-between text-xs text-slate-500">
+              <span>Ventilation mode</span>
+              <select
+                value={s.ventilationMode}
+                onChange={(e) => s.setMeta({ ventilationMode: e.target.value })}
+                className="rounded border border-slate-300 px-2 py-1 text-sm text-slate-800"
+              >
+                <option value="unknown">Unknown / not set</option>
+                <option value="volume_control">Volume control</option>
+                <option value="pressure_control">Pressure control</option>
+              </select>
+            </label>
+            <p className="mt-1 text-xs text-slate-400">
+              In pressure control, tidal volume isn’t directly set — ΔTV recommendations are masked out.
+            </p>
+          </div>
 
           {s.selectedTrack === "track_b" && (
             <div className="mt-3 grid grid-cols-3 gap-3">
@@ -95,8 +153,30 @@ export function Dashboard() {
                   <Delta label="Δ FiO₂" value={rec.delta_FiO2} unit="" decimals={2} />
                 </div>
                 <p className="mt-2 text-sm text-slate-600">{rec.action_text}</p>
+                {rec.track_info.tv_masked && (
+                  <p className="mt-1 text-xs text-amber-600">
+                    Pressure-control mode: tidal-volume changes masked out (ΔTV not directly settable).
+                  </p>
+                )}
+                {rec.track_info.in_support === false && (
+                  <p className="mt-1 text-xs text-amber-600">
+                    ⚠ Out of training support (coverage {Math.round((rec.track_info.support_ratio ?? 0) * 100)}%) —
+                    this patient state is unlike the training data; treat the recommendation with extra caution.
+                  </p>
+                )}
+                {rec.alternatives?.length > 0 && (
+                  <div className="mt-3 border-t border-slate-100 pt-2">
+                    <div className="text-xs font-semibold text-slate-400">Next-best alternative{rec.alternatives.length > 1 ? "s" : ""}</div>
+                    {rec.alternatives.map((a, i) => (
+                      <p key={i} className="text-xs text-slate-500">
+                        {a.action_text} <span className="text-slate-400">(margin {a.margin_from_best.toFixed(2)})</span>
+                      </p>
+                    ))}
+                  </div>
+                )}
                 <div className="mt-4"><ConfidenceBar confidence={rec.track_info.confidence}
-                  track={rec.track_info.track} imputationUsed={rec.track_info.imputation_used} /></div>
+                  track={rec.track_info.track} imputationUsed={rec.track_info.imputation_used}
+                  decisionMargin={rec.track_info.decision_margin} /></div>
               </div>
 
               <div className={`rounded-xl p-4 shadow-sm ${

@@ -63,7 +63,11 @@ def scan_feature_chartevents(stay_ids: set[int],
         dtype={"stay_id": "Int64", "itemid": "Int64", "valuenum": "float64"},
         parse_dates=["charttime"],
     )
+    total_rows_scanned = 0
+    n_chunks = 0
     for i, chunk in enumerate(reader):
+        n_chunks = i + 1
+        total_rows_scanned += len(chunk)
         hit = chunk[chunk["itemid"].isin(_CHART_ITEMIDS)
                     & chunk["stay_id"].isin(stay_ids)]
         if not hit.empty:
@@ -71,7 +75,17 @@ def scan_feature_chartevents(stay_ids: set[int],
         if sample_chunks is not None and (i + 1) >= sample_chunks:
             break
         if (i + 1) % 50 == 0:
-            log.info("  …processed %d chunks", i + 1)
+            log.info("  …processed %d chunks, %d rows scanned", i + 1, total_rows_scanned)
+    log.info("chartevents scan DONE — %d chunks, %d total rows scanned",
+             n_chunks, total_rows_scanned)
+    # Full-scan integrity guard: a complete MIMIC-IV v3.1 chartevents is ~433M rows.
+    # If a full (non-sample) scan ends far below that, the read silently truncated
+    # (swallowed exception / dtype break / stray nrows) — fail loudly rather than
+    # train on a starved cohort. (Sample mode deliberately stops early.)
+    if sample_chunks is None and total_rows_scanned < 200_000_000:
+        raise RuntimeError(
+            f"chartevents scan truncated: only {total_rows_scanned:,} rows "
+            "(expected ~433M for full MIMIC-IV v3.1). Aborting to avoid a starved cohort.")
     if not keep:
         raise ValueError("No state-feature chartevents found for the cohort.")
     ev = pd.concat(keep, ignore_index=True)

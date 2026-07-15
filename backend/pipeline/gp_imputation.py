@@ -108,11 +108,47 @@ def _population_medians(labs: pd.DataFrame) -> dict[str, float]:
     return med
 
 
+def _imputation_method(track: str = "a") -> str:
+    """Config-selected lab imputation method: 'matern' (default) or 'lmc' (§3)."""
+    import yaml
+    cfg_name = "track_a_config.yaml" if track == "a" else "track_b_config.yaml"
+    p = config.REPO_ROOT / "backend" / "configs" / cfg_name
+    if not p.exists():
+        return "matern"
+    cfg = yaml.safe_load(p.read_text()) or {}
+    return str((cfg.get("imputation", {}) or {}).get("method", "matern")).lower()
+
+
+def _extract_obs(subj_labs: pd.DataFrame, feat: str, v_start, v_end,
+                 lo: float, hi: float) -> tuple[np.ndarray, np.ndarray]:
+    """Sorted, clipped (t_obs_hours, y_obs) for a signal within the vent window.
+
+    Returns empty arrays when fewer than 2 observations exist (GP needs ≥ 2)."""
+    if subj_labs.empty:
+        return np.array([]), np.array([])
+    fl = subj_labs[(subj_labs["feature"] == feat)
+                   & (subj_labs["charttime"] >= v_start)
+                   & (subj_labs["charttime"] <= v_end)]
+    if len(fl) < 2:
+        return np.array([]), np.array([])
+    t_obs = ((fl["charttime"] - v_start) / pd.Timedelta(hours=1)).to_numpy()
+    y_obs = np.clip(fl["valuenum"].to_numpy(), lo, hi)
+    order = np.argsort(t_obs)                       # GP needs sorted, distinct inputs
+    return t_obs[order], y_obs[order]
+
+
 def impute(sample_chunks: Optional[int] = None,
            cohort_file: str = "cohort.csv",
-           out_file: str = "gp_imputed_labs.parquet") -> pd.DataFrame:
-    """Run GP imputation over the cohort and write the parquet output."""
+           out_file: str = "gp_imputed_labs.parquet",
+           method: Optional[str] = None) -> pd.DataFrame:
+    """Run GP imputation over the cohort and write the parquet output.
+
+    ``method`` selects ``matern`` (independent per-signal Matérn-3/2, the default)
+    or ``lmc`` (multi-output intrinsic coregionalization GP, §3 / Task A). When
+    ``None`` it is read from config (``imputation.method``), default ``matern`` —
+    so the deployed pipeline is unchanged unless explicitly opted in."""
     config.ensure_output_dirs()
+    method = (method or _imputation_method()).lower()
     cohort = pd.read_csv(config.PROCESSED_PATH / cohort_file,
                          parse_dates=["vent_start", "vent_end"])
     subject_ids = set(cohort["subject_id"].astype(int))
@@ -122,34 +158,42 @@ def impute(sample_chunks: Optional[int] = None,
 
     labs_by_subject = dict(tuple(labs.groupby("subject_id"))) if not labs.empty else {}
 
-    out_rows: list[dict] = []
-    fallback_count = {f: 0 for f in config.LAB_FEATURES}
-
+    # Pass 1: collect per-episode observations (shared by both methods).
+    episodes: list[dict] = []
     for _, ep in cohort.iterrows():
-        stay_id = int(ep["stay_id"])
-        subject_id = int(ep["subject_id"])
         v_start, v_end = ep["vent_start"], ep["vent_end"]
         n_hours = int(np.floor((v_end - v_start) / pd.Timedelta(hours=1))) + 1
-        hours = np.arange(n_hours, dtype=float)
+        subj_labs = labs_by_subject.get(int(ep["subject_id"]), pd.DataFrame())
+        obs = {f: _extract_obs(subj_labs, f, v_start, v_end, *config.LAB_CLIP_RANGES[f])
+               for f in config.LAB_FEATURES}
+        episodes.append({"stay_id": int(ep["stay_id"]),
+                         "hours": np.arange(n_hours, dtype=float),
+                         "obs": {f: o for f, o in obs.items() if len(o[0]) >= 2}})
 
-        per_feat = {"stay_id": stay_id, "hour": hours}
-        subj_labs = labs_by_subject.get(subject_id, pd.DataFrame())
+    if method == "lmc":
+        result = _impute_lmc(episodes, pop_med)
+    else:
+        result = _impute_matern(episodes, pop_med)
 
+    result["hour"] = result["hour"].astype(int)
+    out = config.PROCESSED_PATH / out_file
+    result.to_parquet(out, index=False)
+    log.info("Wrote %d (stay, hour) imputed lab rows → %s (method=%s)",
+             len(result), out, method)
+    return result
+
+
+def _impute_matern(episodes: list[dict], pop_med: dict[str, float]) -> pd.DataFrame:
+    """Independent per-signal Matérn-3/2 GP (the default path — behaviour unchanged)."""
+    out_rows: list[pd.DataFrame] = []
+    fallback_count = {f: 0 for f in config.LAB_FEATURES}
+    for ep in episodes:
+        hours = ep["hours"]; n_hours = len(hours)
+        per_feat = {"stay_id": ep["stay_id"], "hour": hours}
         for feat in config.LAB_FEATURES:
             lo, hi = config.LAB_CLIP_RANGES[feat]
-            if not subj_labs.empty:
-                fl = subj_labs[(subj_labs["feature"] == feat)
-                               & (subj_labs["charttime"] >= v_start)
-                               & (subj_labs["charttime"] <= v_end)]
-            else:
-                fl = pd.DataFrame()
-
-            if len(fl) >= 2:
-                t_obs = ((fl["charttime"] - v_start) / pd.Timedelta(hours=1)).to_numpy()
-                y_obs = np.clip(fl["valuenum"].to_numpy(), lo, hi)
-                # collapse duplicate timestamps (GP needs distinct inputs)
-                order = np.argsort(t_obs)
-                t_obs, y_obs = t_obs[order], y_obs[order]
+            t_obs, y_obs = ep["obs"].get(feat, (np.array([]), np.array([])))
+            if len(t_obs) >= 2:
                 try:
                     with warnings.catch_warnings():
                         warnings.simplefilter("ignore")
@@ -157,24 +201,46 @@ def impute(sample_chunks: Optional[int] = None,
                     pred = np.clip(pred, lo, hi)
                 except Exception as exc:  # numerical issues → fallback
                     log.warning("GP failed (stay %d, %s): %s — using median.",
-                                stay_id, feat, exc)
-                    pred = np.full(n_hours, pop_med[feat])
-                    fallback_count[feat] += 1
+                                ep["stay_id"], feat, exc)
+                    pred = np.full(n_hours, pop_med[feat]); fallback_count[feat] += 1
             else:
-                pred = np.full(n_hours, pop_med[feat])
-                fallback_count[feat] += 1
-
+                pred = np.full(n_hours, pop_med[feat]); fallback_count[feat] += 1
             per_feat[feat] = pred
-
         out_rows.append(pd.DataFrame(per_feat))
-
-    result = pd.concat(out_rows, ignore_index=True)
-    result["hour"] = result["hour"].astype(int)
-    out = config.PROCESSED_PATH / out_file
-    result.to_parquet(out, index=False)
-    log.info("Wrote %d (stay, hour) imputed lab rows → %s", len(result), out)
     log.info("Median-fallback episode counts per feature: %s", fallback_count)
-    return result
+    return pd.concat(out_rows, ignore_index=True)
+
+
+def _impute_lmc(episodes: list[dict], pop_med: dict[str, float]) -> pd.DataFrame:
+    """Multi-output ICM GP (§3 / Task A) — jointly imputes the correlated labs."""
+    from backend.pipeline import gp_lmc
+    obs_only = [ep["obs"] for ep in episodes if ep["obs"]]
+    rng = np.random.default_rng(0)
+    sample = ([obs_only[i] for i in rng.choice(len(obs_only),
+                                               size=min(500, len(obs_only)), replace=False)]
+              if obs_only else [])
+    imp, rep = gp_lmc.fit_global(sample) if sample else (None, {})
+    if rep:
+        import json
+        (config.LOGS_PATH / "gp_lmc_cv.json").write_text(json.dumps(rep, indent=2))
+        log.info("LMC CV: lengthscale=%.1f mean RMSE lmc=%.3f vs matern=%.3f | W=%s",
+                 rep["lengthscale"], rep["mean_rmse_lmc"], rep["mean_rmse_matern"],
+                 [[round(x, 2) for x in row] for row in rep["W"]])
+
+    out_rows: list[pd.DataFrame] = []
+    fallback_count = {f: 0 for f in config.LAB_FEATURES}
+    for ep in episodes:
+        hours = ep["hours"]; n_hours = len(hours)
+        per_feat = {"stay_id": ep["stay_id"], "hour": hours}
+        pred_dict = imp.impute_episode(ep["obs"], hours) if (imp and ep["obs"]) else {}
+        for feat in config.LAB_FEATURES:
+            if feat in pred_dict:
+                per_feat[feat] = pred_dict[feat]
+            else:
+                per_feat[feat] = np.full(n_hours, pop_med[feat]); fallback_count[feat] += 1
+        out_rows.append(pd.DataFrame(per_feat))
+    log.info("LMC median-fallback episode counts per feature: %s", fallback_count)
+    return pd.concat(out_rows, ignore_index=True)
 
 
 def main() -> None:

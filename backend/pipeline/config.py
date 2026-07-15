@@ -69,6 +69,7 @@ def resolve_table(gz_path: Path) -> Path:
 # present (some .gz archives on disk are corrupt).
 ICUSTAYS = resolve_table(MIMIC_IV_ICU / "icustays.csv.gz")
 CHARTEVENTS = resolve_table(MIMIC_IV_ICU / "chartevents.csv.gz")   # always chunked
+PROCEDUREEVENTS = resolve_table(MIMIC_IV_ICU / "procedureevents.csv.gz")
 DITEMS = resolve_table(MIMIC_IV_ICU / "d_items.csv.gz")
 LABEVENTS = resolve_table(MIMIC_IV_HOSP / "labevents.csv.gz")      # always chunked
 ADMISSIONS = resolve_table(MIMIC_IV_HOSP / "admissions.csv.gz")
@@ -95,7 +96,15 @@ VENT_ITEMIDS = [
     224684,  # Tidal Volume (set)
 ]
 
-# --- Exclusion markers ---
+# --- procedureevents itemids (ground-truth ventilation intervals) ---
+# Cohort ventilation episodes are derived from procedureevents (explicit
+# start/end times), NOT from sparse chartevents markers — the latter fragment
+# multi-day vent courses into ~7h stubs (verified against the data).
+VENT_PROC_ITEMID = 225792                 # Invasive Ventilation
+NIV_PROC_ITEMID = 225794                  # Non-invasive Ventilation
+ECMO_PROC_ITEMIDS = [229529, 229530]      # ECMO Inflow / Outflow Line
+
+# --- Exclusion markers (legacy chartevents-based; kept for reference) ---
 ECMO_ITEMIDS = [224660, 228193]          # ECMO, Oxygenator/ECMO
 NIV_ITEMIDS = [225794]                    # Non-invasive Ventilation
 CARDIAC_ARREST_ICD = {                    # ICD-9 4275 / ICD-10 I46.x

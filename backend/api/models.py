@@ -45,6 +45,14 @@ class RecommendationRequest(BaseModel):
     ecg_features: Optional[ECGFeatures] = None
     pleth_features: Optional[PlethFeatures] = None
     resp_features: Optional[RespFeatures] = None
+    # Hold-vs-act responsiveness (§16 item 9). 0.0 = the conservative deployed
+    # policy; higher makes the policy leave "hold" for a smaller expected gain,
+    # without changing which action it picks when it acts.
+    responsiveness: float = Field(0.0, ge=0.0, le=1.0)
+    # Ventilation mode for mode-aware action masking (§16 item 6). A category
+    # ("volume_control"/"pressure_control") or a raw ventilator-mode string; in
+    # pressure-control, ΔTV recommendations are masked out. None = no masking.
+    ventilation_mode: Optional[str] = None
 
     @model_validator(mode="after")
     def _track_b_needs_waveform(self):
@@ -58,9 +66,20 @@ class TrackInfo(BaseModel):
     track: str
     track_label: str
     confidence: float
+    # Q-gap (best minus second-best action) the confidence is derived from.
+    # Larger margin → the policy chose more decisively → higher confidence.
+    decision_margin: Optional[float] = None
     waveform_used: bool
     waveform_coverage: Optional[float] = None
     imputation_used: Optional[bool] = None
+    # Mode-aware masking (§16 item 6): the classified mode and whether ΔTV actions
+    # were masked out (pressure-control).
+    ventilation_mode: Optional[str] = None
+    tv_masked: Optional[bool] = None
+    # Learned OOD/support signal (§16 item 7): whether the state is within the
+    # training manifold, and a [0,1] coverage ratio (1 = well in-support).
+    in_support: Optional[bool] = None
+    support_ratio: Optional[float] = None
 
 
 class SHAPEntry(BaseModel):
@@ -75,12 +94,21 @@ class SafetyFlag(BaseModel):
     message: str
 
 
+class AlternativeAction(BaseModel):
+    delta_PEEP: int
+    delta_TV: int
+    delta_FiO2: float
+    action_text: str
+    margin_from_best: float
+
+
 class Recommendation(BaseModel):
     delta_PEEP: int
     delta_TV: int
     delta_FiO2: float
     action_text: str
     track_info: TrackInfo
+    alternatives: list[AlternativeAction] = []  # rank 1+ within margin; empty if far
 
 
 class Safety(BaseModel):
