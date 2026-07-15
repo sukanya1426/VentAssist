@@ -1,0 +1,18 @@
+{
+  "layer": 1,
+  "description": "counterfactual reward spread across all 125 actions, (s, s') held fixed",
+  "n_sampled_transitions": 3000,
+  "intellilung_range_reward": {
+    "mean_spread": 0.0,
+    "max_spread": 0.0,
+    "pct_transitions_with_zero_spread": 100.0
+  },
+  "ventassist_reward": {
+    "mean_spread": 2.025,
+    "max_spread": 4.4,
+    "pct_transitions_with_zero_spread": 0.0
+  },
+  "lam_causal": 2.0,
+  "verdict": "IntelliLung's reward assigns the IDENTICAL value to all 125 actions for 100% of transitions \u2014 it carries zero action signal. VentAssist's reward discriminates between actions.",
+  "timestamp": "2026-07-14T20:57:17.802128+00:00"
+}

@@ -1,0 +1,23 @@
+{
+  "track": "a",
+  "n_test": 198050,
+  "n_transitions": 992100,
+  "loglik_policy": -1.0441,
+  "loglik_clinician": -1.096,
+  "delta_policy_minus_clinician": 0.0519,
+  "perplexity_policy": 2.84,
+  "perplexity_clinician": 2.99,
+  "per_factor_loglik_policy": {
+    "delta_PEEP": -0.2034,
+    "delta_TV": -0.6203,
+    "delta_FiO2": -0.2182
+  },
+  "per_factor_loglik_clinician": {
+    "delta_PEEP": -0.2541,
+    "delta_TV": -0.6397,
+    "delta_FiO2": -0.2368
+  },
+  "agreement_with_clinician": 0.5731,
+  "seed": 0,
+  "timestamp": "2026-07-14T21:02:15.595516+00:00"
+}
