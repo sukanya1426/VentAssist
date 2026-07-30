@@ -1,4 +1,85 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-body { @apply bg-slate-100 text-slate-800; }
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+
+  body {
+    @apply min-h-screen bg-[#f4f7fb] font-sans text-slate-800 antialiased;
+    /* Two soft instrument-glow washes over a faint monitor grid. */
+    background-image:
+      radial-gradient(900px 480px at 10% -10%, rgba(34, 211, 238, 0.16), transparent 62%),
+      radial-gradient(760px 420px at 94% 0%, rgba(129, 140, 248, 0.14), transparent 60%),
+      linear-gradient(rgba(15, 23, 42, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(15, 23, 42, 0.035) 1px, transparent 1px);
+    background-size: auto, auto, 44px 44px, 44px 44px;
+    background-attachment: fixed;
+  }
+
+  /* Strip the spinners — the numeric fields read as instrument values. */
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
+
+  ::selection {
+    @apply bg-cyan-200/70 text-slate-900;
+  }
+}
+
+@layer components {
+  /* The VentAssist wordmark. Size comes from the caller's text-* utility. */
+  .wordmark {
+    @apply bg-clip-text font-display font-bold tracking-tight text-transparent;
+    background-image: linear-gradient(
+      100deg,
+      #0d9488 0%,
+      #0891b2 26%,
+      #2563eb 56%,
+      #7c3aed 80%,
+      #c026d3 100%
+    );
+  }
+
+  /* Frosted instrument panel — the one surface used across the app. */
+  .panel {
+    @apply rounded-2xl border border-slate-200/80 bg-white/80 shadow-[0_1px_2px_0_rgba(15,23,42,0.04),0_12px_32px_-18px_rgba(15,23,42,0.28)] backdrop-blur-xl;
+  }
+
+  .panel-hover {
+    @apply transition duration-200 hover:-translate-y-0.5 hover:border-cyan-400/50 hover:bg-white hover:shadow-[0_2px_4px_0_rgba(15,23,42,0.05),0_20px_44px_-20px_rgba(8,145,178,0.4)];
+  }
+
+  /* Small uppercase caption used for every field and stat label. */
+  .caption {
+    @apply text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400;
+  }
+
+  .field {
+    @apply w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 font-mono text-sm text-slate-900
+           outline-none transition placeholder:text-slate-400
+           focus:border-cyan-500/60 focus:ring-2 focus:ring-cyan-500/15;
+  }
+
+  .btn-primary {
+    @apply w-full rounded-xl bg-gradient-to-r from-cyan-500 via-sky-500 to-indigo-500
+           py-3 font-display font-semibold tracking-tight text-white shadow-[0_10px_24px_-12px_rgba(14,165,233,0.9)]
+           transition hover:brightness-110 active:brightness-95 disabled:cursor-not-allowed disabled:opacity-40;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white/80 px-3 py-1.5
+           text-xs text-slate-600 transition hover:border-slate-300 hover:bg-white hover:text-slate-900;
+  }
+
+  .num {
+    @apply font-mono tabular-nums;
+  }
+}

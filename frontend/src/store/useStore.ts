@@ -1,19 +1,44 @@
 import { create } from "zustand";
 import { getRecommendation } from "../api/client";
-import {
-  CUSTOM_LABEL, DEFAULT_PRESET, PATIENT_PRESETS,
-} from "../data/patientPresets";
+import { DEFAULT_PRESET } from "../data/patientPresets";
+import { validateTabular } from "../data/patientFile";
+import type { Patient } from "../data/patients";
 import type {
   RecommendationRequest, RecommendationResponse, TabularState, Track,
 } from "../types/recommendation";
 
 const DEFAULT_STATE: TabularState = { ...DEFAULT_PRESET.state };
 
+/**
+ * FastAPI returns 422 validation failures as a list of
+ * `{loc: [...,"field"], msg}` objects — stringifying that gave "[object Object]".
+ * Turn it into a per-field message.
+ */
+function describeApiError(e: any): string {
+  const detail = e?.response?.data?.detail;
+  if (Array.isArray(detail)) {
+    return detail
+      .map((d: any) => {
+        const field = Array.isArray(d?.loc) ? d.loc[d.loc.length - 1] : "request";
+        return `${field}: ${d?.msg ?? "invalid"}`;
+      })
+      .join("; ");
+  }
+  if (typeof detail === "string") return detail;
+  return e?.message ?? "Request failed";
+}
+
+const DEFAULT_WAVEFORM = {
+  ecgHRV: 31.2, ecgArr: 0.03, pleth: 2.1,
+  rrv: 0.19, breathReg: 0.81, asynchrony: 0.1,
+};
+
 interface AppState {
-  patientId: string;
+  patientId: string;          // roster id, e.g. "patient-a"
+  patientName: string;
   patientWeight: number;
   tabular: TabularState;
-  presetKey: string;          // key of the active preset, or CUSTOM_LABEL when edited
+  edited: boolean;            // true once the loaded patient state has been changed
   selectedTrack: Track;
   waveformAvailable: boolean;
   responsiveness: number;
@@ -21,61 +46,103 @@ interface AppState {
   ecgHRV: number; ecgArr: number; pleth: number;
   rrv: number; breathReg: number; asynchrony: number;
   result: RecommendationResponse | null;
+  resultState: TabularState | null;   // the state `result` was computed from
   loading: boolean;
   error: string | null;
   setField: (k: keyof TabularState, v: number) => void;
-  loadPreset: (key: string) => void;
-  setMeta: (p: Partial<Pick<AppState, "patientId" | "patientWeight" | "selectedTrack" | "waveformAvailable" | "responsiveness" | "ventilationMode" | "ecgHRV" | "ecgArr" | "pleth" | "rrv" | "breathReg" | "asynchrony">>) => void;
+  loadPatient: (p: Patient) => void;
+  resetPatient: () => void;
+  setMeta: (p: Partial<Pick<AppState, "patientWeight" | "selectedTrack" | "waveformAvailable" | "responsiveness" | "ventilationMode" | "ecgHRV" | "ecgArr" | "pleth" | "rrv" | "breathReg" | "asynchrony">>) => void;
   fetch: () => Promise<void>;
 }
 
-export const useStore = create<AppState>((set, get) => ({
-  patientId: "demo-001",
-  patientWeight: 74,
-  tabular: { ...DEFAULT_STATE },
-  presetKey: DEFAULT_PRESET.key,
-  selectedTrack: "track_a",
-  waveformAvailable: true,
-  responsiveness: 0,
-  ventilationMode: "unknown",
-  ecgHRV: 31.2, ecgArr: 0.03, pleth: 2.1,
-  rrv: 0.19, breathReg: 0.81, asynchrony: 0.1,
-  result: null,
-  loading: false,
-  error: null,
-  // editing any field detaches from the named preset
-  setField: (k, v) => set((s) => ({
-    tabular: { ...s.tabular, [k]: v }, presetKey: CUSTOM_LABEL,
-  })),
-  loadPreset: (key) => {
-    const p = PATIENT_PRESETS.find((x) => x.key === key);
-    if (!p) return;
-    set({ tabular: { ...p.state }, presetKey: p.key, result: null });
-  },
-  setMeta: (p) => set(p),
-  fetch: async () => {
-    const s = get();
-    set({ loading: true, error: null });
-    try {
-      const req: RecommendationRequest = {
-        patient_id: s.patientId,
-        patient_weight: s.patientWeight,
-        track: s.selectedTrack,
-        tabular_state: s.tabular,
-        responsiveness: s.responsiveness,
-        ventilation_mode: s.ventilationMode === "unknown" ? null : s.ventilationMode,
-      };
-      if (s.selectedTrack === "track_b") {
-        req.ecg_features = { HRV_SDNN: s.ecgHRV, Arrhythmia_rate: s.ecgArr };
-        req.pleth_features = { Perfusion_Index: s.pleth };
-        req.resp_features = {
-          RRV: s.rrv, Breathing_Regularity: s.breathReg, Asynchrony_Score: s.asynchrony,
-        };
+export const useStore = create<AppState>((set, get) => {
+  let current: Patient | null = null;   // the patient the working state came from
+
+  return {
+    patientId: "",
+    patientName: "",
+    patientWeight: 74,
+    tabular: { ...DEFAULT_STATE },
+    edited: false,
+    selectedTrack: "track_a",
+    waveformAvailable: true,
+    responsiveness: 0,
+    ventilationMode: "unknown",
+    ...DEFAULT_WAVEFORM,
+    result: null,
+    resultState: null,
+    loading: false,
+    error: null,
+    // editing any field detaches the working state from the patient's recorded state
+    setField: (k, v) => set((s) => ({
+      tabular: { ...s.tabular, [k]: v }, edited: true,
+    })),
+    loadPatient: (p) => {
+      current = p;
+      const w = p.waveform;
+      // Uploads carry their own waveform values; presets fall back to the demo set.
+      const waveform = w ? {
+        ecgHRV: w.HRV_SDNN ?? DEFAULT_WAVEFORM.ecgHRV,
+        ecgArr: w.Arrhythmia_rate ?? DEFAULT_WAVEFORM.ecgArr,
+        pleth: w.Perfusion_Index ?? DEFAULT_WAVEFORM.pleth,
+        rrv: w.RRV ?? DEFAULT_WAVEFORM.rrv,
+        breathReg: w.Breathing_Regularity ?? DEFAULT_WAVEFORM.breathReg,
+        asynchrony: w.Asynchrony_Score ?? DEFAULT_WAVEFORM.asynchrony,
+      } : DEFAULT_WAVEFORM;
+      // A preset patient has no recorded waveform, but the demo values let the
+      // clinician explore Track B; an upload only offers it if the file had one.
+      const waveformAvailable = p.source === "preset" || !!w;
+      set({
+        patientId: p.id,
+        patientName: p.name,
+        patientWeight: p.weight,
+        tabular: { ...p.state },
+        edited: false,
+        waveformAvailable,
+        selectedTrack: p.track && waveformAvailable ? p.track : "track_a",
+        ventilationMode: p.ventilationMode ?? "unknown",
+        ...waveform,
+        result: null,
+        resultState: null,
+        error: null,
+      });
+    },
+    // discard local edits and restore the patient's recorded state
+    resetPatient: () => { if (current) get().loadPatient(current); },
+    setMeta: (p) => set(p),
+    fetch: async () => {
+      const s = get();
+      // Validate locally first: a cleared or out-of-range input would otherwise
+      // reach the API as null/NaN and come back as an opaque 422.
+      const problems = validateTabular(s.tabular, s.patientWeight);
+      if (problems.length) {
+        set({ error: `Fix before requesting — ${problems.join("; ")}`, loading: false });
+        return;
       }
-      const result = await getRecommendation(req);
-      set({ result, loading: false });
-    } catch (e: any) {
-      set({ error: e?.response?.data?.detail?.toString() ?? e.message, loading: false });
-    }
-  },
-}));
+      set({ loading: true, error: null });
+      try {
+        const req: RecommendationRequest = {
+          patient_id: s.patientId,
+          patient_weight: s.patientWeight,
+          track: s.selectedTrack,
+          // RASS is an int server-side; the rest are floats.
+          tabular_state: { ...s.tabular, RASS: Math.round(s.tabular.RASS) },
+          responsiveness: s.responsiveness,
+          ventilation_mode: s.ventilationMode === "unknown" ? null : s.ventilationMode,
+        };
+        if (s.selectedTrack === "track_b") {
+          req.ecg_features = { HRV_SDNN: s.ecgHRV, Arrhythmia_rate: s.ecgArr };
+          req.pleth_features = { Perfusion_Index: s.pleth };
+          req.resp_features = {
+            RRV: s.rrv, Breathing_Regularity: s.breathReg, Asynchrony_Score: s.asynchrony,
+          };
+        }
+        const result = await getRecommendation(req);
+        set({ result, resultState: { ...req.tabular_state }, loading: false });
+      } catch (e: any) {
+        set({ error: describeApiError(e), loading: false });
+      }
+    },
+  };
+});

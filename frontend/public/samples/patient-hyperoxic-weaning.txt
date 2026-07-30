@@ -1,0 +1,28 @@
+# Test case 2 — hyperoxia on high FiO2
+# Expected: the policy should wean oxygen (↓FiO2).
+# Reward check: SpO2 100 is above the hyperoxia threshold (98), so f_oxy is
+# negative and reducing FiO2 is the improving action.
+
+name: Patient H
+age: 71
+sex: M
+bed: ICU-08
+summary: Post-arrest, saturating 100% on FiO2 0.70 — oxygen weaning indicated
+
+weight: 84
+
+PEEP: 8
+TV: 500
+FiO2: 0.70
+SpO2: 100
+PaO2: 142
+PaCO2: 41
+pH: 7.39
+HR: 88
+SBP: 126
+RR: 18
+RASS: -2
+Temp: 36.9
+
+ventilation_mode: volume_control
+track: track_a

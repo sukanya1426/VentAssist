@@ -6,7 +6,10 @@ export function ConfidenceBar({ confidence, track, imputationUsed, decisionMargi
 }) {
   const pct = Math.round(confidence * 100);
   // Colour by strength of the decision, not by track: red (toss-up) → amber → green.
-  const color = pct >= 65 ? "bg-green-500" : pct >= 50 ? "bg-amber-400" : "bg-red-400";
+  const bar =
+    pct >= 65 ? "from-emerald-500 to-teal-400"
+    : pct >= 50 ? "from-amber-500 to-yellow-400"
+    : "from-rose-500 to-orange-400";
   const source =
     track === "track_a" ? "clinical data"
     : imputationUsed ? "clinical + partial (imputed) waveform"
@@ -19,14 +22,17 @@ export function ConfidenceBar({ confidence, track, imputationUsed, decisionMargi
     : " · near-tie with next-best";
   return (
     <div>
-      <div className="flex items-center justify-between text-xs text-slate-500">
-        <span>Confidence</span>
-        <span className="font-semibold text-slate-700">{pct}%</span>
+      <div className="flex items-baseline justify-between">
+        <span className="caption">Confidence</span>
+        <span className="num text-sm font-semibold text-slate-900">{pct}%</span>
       </div>
-      <div className="mt-1 h-2 w-full rounded bg-slate-200">
-        <div className={`h-2 rounded ${color}`} style={{ width: `${pct}%` }} />
+      <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+        <div
+          className={`h-full rounded-full bg-gradient-to-r ${bar} transition-[width] duration-500`}
+          style={{ width: `${pct}%` }}
+        />
       </div>
-      <p className="mt-1 text-xs text-slate-400">
+      <p className="mt-1.5 text-[11px] leading-relaxed text-slate-500">
         Q-margin decision confidence on {source}{decisiveness}
       </p>
     </div>

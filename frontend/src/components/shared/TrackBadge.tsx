@@ -7,13 +7,15 @@ export function TrackBadge({ track, label, waveformUsed }: {
   const isB = track === "track_b";
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium ${
-        isB ? "bg-blue-100 text-blue-800" : "bg-slate-200 text-slate-700"
+      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium tracking-wide ${
+        isB
+          ? "border-indigo-200 bg-indigo-50 text-indigo-700"
+          : "border-cyan-200 bg-cyan-50 text-cyan-700"
       }`}
     >
-      {isB ? <Activity size={15} /> : <Stethoscope size={15} />}
+      {isB ? <Activity size={14} /> : <Stethoscope size={14} />}
       {label}
-      {isB && !waveformUsed && <span className="text-xs opacity-70">(no waveform)</span>}
+      {isB && !waveformUsed && <span className="opacity-60">· no waveform</span>}
     </span>
   );
 }

@@ -1,10 +1,10 @@
 import type { TabularState } from "../types/recommendation";
 
 /**
- * Clinically distinct preset patient states for the dashboard dropdown.
- * Each is chosen to exercise a different part of the policy so the user can see
- * the recommendation change meaningfully between selections. All fields stay
- * editable after a preset is loaded (editing switches the dropdown to "Custom").
+ * Clinically distinct preset patient states, one per patient on the roster
+ * (see `patients.ts`). Each is chosen to exercise a different part of the policy so
+ * the recommendation differs meaningfully between patients. All fields stay editable
+ * on the patient page (editing marks the state as "Edited" until reset).
  */
 export interface PatientPreset {
   key: string;
@@ -59,5 +59,4 @@ export const PATIENT_PRESETS: PatientPreset[] = [
   },
 ];
 
-export const CUSTOM_LABEL = "Custom (edited)";
 export const DEFAULT_PRESET = PATIENT_PRESETS[0];
