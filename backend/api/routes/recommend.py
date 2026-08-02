@@ -2,15 +2,20 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from datetime import datetime, timezone
+from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
+from backend.api import auth as A
+from backend.api import db
 from backend.api import models as M
 from backend.api.state import get_services
 
 router = APIRouter()
+log = logging.getLogger(__name__)
 
 
 def _action_text(dp: int, dt: int, df: float) -> str:
@@ -25,11 +30,61 @@ def _action_text(dp: int, dt: int, df: float) -> str:
             f"{part('FiO₂', df, '', prec=2)}")
 
 
+async def _save(req: M.RecommendationRequest, resp: M.RecommendationResponse,
+                waveform: Optional[dict], clinician: Optional[str] = None) -> Optional[str]:
+    """File this ask under its patient. One document per request, so re-asking with
+    changed settings appends a second record rather than replacing the first.
+
+    The signed-in clinician is stored alongside it: the history is a record of who
+    asked what and when, which is the only reason it is worth keeping.
+
+    A storage failure must not cost the clinician the recommendation they just
+    computed, so this swallows its errors and reports the result as unsaved.
+    """
+    if not db.is_configured():
+        return None
+    rec = resp.recommendation
+    doc = {
+        "patient_id": req.patient_id,
+        "patient_name": req.patient_name,
+        "clinician": clinician,
+        "created_at": datetime.now(timezone.utc),
+        "track": rec.track_info.track,
+        "patient_weight": req.patient_weight,
+        "responsiveness": req.responsiveness,
+        "ventilation_mode": req.ventilation_mode,
+        "state": req.tabular_state.model_dump(),
+        "waveform": {k: v for k, v in (waveform or {}).items() if v is not None} or None,
+        "delta_PEEP": rec.delta_PEEP,
+        "delta_TV": rec.delta_TV,
+        "delta_FiO2": rec.delta_FiO2,
+        "action_text": rec.action_text,
+        "confidence": rec.track_info.confidence,
+        "safety_all_clear": resp.safety.all_clear,
+        "safety_flags": [f.model_dump() for f in resp.safety.flags],
+        "latency_ms": resp.metadata.latency_ms,
+    }
+    try:
+        res = await db.recommendations().insert_one(doc)
+        return str(res.inserted_id)
+    except Exception as e:
+        log.warning("Could not save recommendation for %s: %s", req.patient_id, e)
+        return None
+
+
 @router.post("/recommend", response_model=M.RecommendationResponse)
-async def recommend(req: M.RecommendationRequest) -> M.RecommendationResponse:
+async def recommend(
+    req: M.RecommendationRequest,
+    # Declared again even though the router is already guarded: the guard makes the
+    # route unreachable without a session, this makes *who* it was reachable by
+    # available to the record we file.
+    user: A.CurrentUser = Depends(A.current_user),
+) -> M.RecommendationResponse:
     t0 = time.time()
     svc = get_services()
     ts = req.tabular_state.model_dump()
+
+    wv: Optional[dict] = None
 
     try:
         if req.track == "track_a":
@@ -80,7 +135,7 @@ async def recommend(req: M.RecommendationRequest) -> M.RecommendationResponse:
             margin_from_best=round(a["margin_from_best"], 4))
         for a in routing.get("alternatives", [])
     ]
-    return M.RecommendationResponse(
+    resp = M.RecommendationResponse(
         recommendation=M.Recommendation(
             delta_PEEP=dp, delta_TV=dt, delta_FiO2=df,
             action_text=_action_text(dp, dt, df), track_info=info,
@@ -93,3 +148,5 @@ async def recommend(req: M.RecommendationRequest) -> M.RecommendationResponse:
         metadata=M.Metadata(latency_ms=int((time.time() - t0) * 1000),
                             timestamp=datetime.now(timezone.utc).isoformat()),
     )
+    resp.record_id = await _save(req, resp, wv, clinician=user.username)
+    return resp

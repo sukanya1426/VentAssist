@@ -1,13 +1,15 @@
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AlertCircle, Download, FilePlus2, Loader2 } from "lucide-react";
+import { apiErrorMessage } from "../../api/client";
 import { PATIENT_FILE_TEMPLATE, parsePatientFile } from "../../data/patientFile";
 import { useRoster } from "../../store/useRoster";
 
 /**
  * Drop-zone card in the roster grid: a clinician uploads a patient file, it is
- * parsed and validated against the API's field bounds, and the patient joins the
- * roster ready for a recommendation.
+ * parsed and validated against the API's field bounds, saved to MongoDB, and the
+ * patient joins the roster ready for a recommendation. The id comes back from the
+ * server, so the page it navigates to is the stored patient.
  */
 export function UploadPatientCard() {
   const addPatient = useRoster((s) => s.addPatient);
@@ -31,8 +33,14 @@ export function UploadPatientCard() {
         setErrors(errors);
         return;
       }
-      addPatient(patient);
-      navigate(`/patients/${patient.id}`);
+      try {
+        const saved = await addPatient(patient);
+        navigate(`/patients/${saved.id}`);
+      } catch (e: any) {
+        // The file was fine — the database was not. Say which, so the clinician
+        // doesn't go looking for a formatting problem that isn't there.
+        setErrors([`Could not save the patient: ${apiErrorMessage(e)}`]);
+      }
     } catch (e: any) {
       setErrors([`Could not read the file: ${e?.message ?? e}`]);
     } finally {

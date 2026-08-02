@@ -1,5 +1,5 @@
-import type { Patient, WaveformFeatures } from "./patients";
-import type { TabularState } from "../types/recommendation";
+import type { PatientCreate, WaveformFeatures } from "../types/patient";
+import type { TabularState, Track } from "../types/recommendation";
 
 /**
  * Parser for uploaded patient files.
@@ -51,7 +51,8 @@ const WAVEFORM_FIELDS: { key: keyof WaveformFeatures; aliases: string[]; min: nu
 export const WEIGHT = { aliases: ["weight", "patient_weight", "weight_kg", "body_weight"], min: 30, max: 300 };
 
 export interface ParseResult {
-  patient?: Patient;
+  /** Ready to POST to /api/patients — the server assigns the id. */
+  patient?: PatientCreate;
   errors: string[];
   warnings: string[];
 }
@@ -170,7 +171,7 @@ export function parsePatientFile(text: string, fileName = "upload"): ParseResult
     else warnings.push(`Unrecognised ventilation_mode "${mode}" — treated as unknown`);
   }
 
-  let track: Patient["track"];
+  let track: Track | undefined;
   if (trackRaw) {
     const t = norm(trackRaw);
     if (t.includes("b")) {
@@ -181,8 +182,7 @@ export function parsePatientFile(text: string, fileName = "upload"): ParseResult
 
   if (errors.length) return { errors, warnings };
 
-  const patient: Patient = {
-    id: `upload-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+  const patient: PatientCreate = {
     name: name.trim(),
     weight,
     age: ageRaw && !Number.isNaN(toNumber(ageRaw)) ? Math.round(toNumber(ageRaw)) : 0,
@@ -191,10 +191,9 @@ export function parsePatientFile(text: string, fileName = "upload"): ParseResult
     summary: pick(map, ["summary", "notes", "diagnosis", "history"]) ?? `Uploaded from ${fileName}`,
     state,
     source: "upload",
-    waveform: hasWaveform ? waveform : undefined,
-    ventilationMode,
+    waveform: hasWaveform ? waveform : null,
+    ventilation_mode: ventilationMode ?? null,
     track: track ?? (hasWaveform ? "track_b" : "track_a"),
-    uploadedAt: new Date().toISOString(),
   };
   return { patient, errors, warnings };
 }

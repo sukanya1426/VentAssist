@@ -1,7 +1,8 @@
 import { useEffect, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
-  AlertTriangle, ArrowLeft, CheckCircle2, Gauge, RefreshCw, RotateCcw, ShieldCheck, Sparkles, Timer,
+  AlertTriangle, ArrowLeft, CheckCircle2, Gauge, Loader2, RefreshCw, RotateCcw,
+  ShieldCheck, Sparkles, Timer,
 } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { TrackBadge } from "../components/shared/TrackBadge";
@@ -9,7 +10,10 @@ import { Waveform } from "../components/shared/Waveform";
 import { Wordmark } from "../components/shared/Wordmark";
 import { ConfidenceBar } from "../components/recommendation/ConfidenceBar";
 import { TrackSelector } from "../components/recommendation/TrackSelector";
-import { usePatientById } from "../store/useRoster";
+import { ValidationLink } from "../components/recommendation/ValidationLink";
+import { RecommendationHistory } from "../components/recommendation/RecommendationHistory";
+import { UserMenu } from "../components/auth/UserMenu";
+import { usePatientById, useRoster } from "../store/useRoster";
 import { CLINICAL_FIELDS, fieldIsValid, validateTabular } from "../data/patientFile";
 import { LEVEL_DOT, LEVEL_TEXT, vitalLevel, worstLevel } from "../data/vitalRanges";
 import type { TabularState } from "../types/recommendation";
@@ -32,6 +36,9 @@ export function PatientDetail() {
   const s = useStore();
   const loadPatient = useStore((st) => st.loadPatient);
   const patient = usePatientById(patientId);
+  // The roster comes from MongoDB, so on a direct page load it is briefly empty.
+  const rosterLoaded = useRoster((st) => st.loaded);
+  const rosterError = useRoster((st) => st.error);
 
   useEffect(() => {
     if (patient) loadPatient(patient);
@@ -41,9 +48,17 @@ export function PatientDetail() {
   if (!patient) {
     return (
       <div className="mx-auto max-w-6xl px-6 py-16">
-        <div className="panel p-10 text-center text-slate-600">
-          No such patient.{" "}
-          <Link to="/" className="text-cyan-700 hover:underline">Back to the roster</Link>
+        <div className="panel grid min-h-[160px] place-items-center p-10 text-center text-slate-600">
+          {!rosterLoaded ? (
+            <Loader2 className="animate-spin text-slate-300" size={22} />
+          ) : (
+            <div>
+              {/* A database that's down is not the same as a patient who isn't
+                  there — a wrong message here sends the user hunting the wrong bug. */}
+              {rosterError ? `Could not load the roster — ${rosterError}` : "No such patient."}{" "}
+              <Link to="/" className="text-cyan-700 hover:underline">Back to the roster</Link>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -69,7 +84,10 @@ export function PatientDetail() {
         <Link to="/" className="btn-ghost">
           <ArrowLeft size={14} /> Roster
         </Link>
-        <Wordmark className="text-xl" />
+        <div className="flex items-center gap-3">
+          <Wordmark className="text-xl" />
+          <UserMenu />
+        </div>
       </div>
 
       {/* ---- Patient banner ---- */}
@@ -379,6 +397,13 @@ export function PatientDetail() {
               </section>
             </>
           )}
+
+          {/* Everything previously asked for this patient, read back from MongoDB. */}
+          <RecommendationHistory patientId={patient.id} refreshKey={s.savedCount} />
+
+          {/* Model-level evidence — the same for every patient, so it lives on its
+              own page; this is only the doorway to it. */}
+          <ValidationLink track={s.selectedTrack === "track_b" ? "b" : "a"} />
         </div>
       </div>
     </div>

@@ -8,6 +8,7 @@ export interface TabularState {
 
 export interface RecommendationRequest {
   patient_id: string;
+  patient_name?: string;     // stored with the record so history is attributable
   patient_weight: number;
   track: Track;
   tabular_state: TabularState;
@@ -60,4 +61,6 @@ export interface RecommendationResponse {
   safety: { all_clear: boolean; flags: SafetyFlag[] };
   explanation: { top_features: SHAPEntry[]; decision_rule: string };
   metadata: { latency_ms: number; timestamp: string };
+  /** Id of the MongoDB history record; null when the result could not be saved. */
+  record_id?: string | null;
 }

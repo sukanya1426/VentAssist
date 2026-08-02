@@ -1,32 +1,13 @@
 import { create } from "zustand";
-import { getRecommendation } from "../api/client";
+import { apiErrorMessage, getRecommendation } from "../api/client";
 import { DEFAULT_PRESET } from "../data/patientPresets";
 import { validateTabular } from "../data/patientFile";
-import type { Patient } from "../data/patients";
+import type { Patient } from "../types/patient";
 import type {
   RecommendationRequest, RecommendationResponse, TabularState, Track,
 } from "../types/recommendation";
 
 const DEFAULT_STATE: TabularState = { ...DEFAULT_PRESET.state };
-
-/**
- * FastAPI returns 422 validation failures as a list of
- * `{loc: [...,"field"], msg}` objects — stringifying that gave "[object Object]".
- * Turn it into a per-field message.
- */
-function describeApiError(e: any): string {
-  const detail = e?.response?.data?.detail;
-  if (Array.isArray(detail)) {
-    return detail
-      .map((d: any) => {
-        const field = Array.isArray(d?.loc) ? d.loc[d.loc.length - 1] : "request";
-        return `${field}: ${d?.msg ?? "invalid"}`;
-      })
-      .join("; ");
-  }
-  if (typeof detail === "string") return detail;
-  return e?.message ?? "Request failed";
-}
 
 const DEFAULT_WAVEFORM = {
   ecgHRV: 31.2, ecgArr: 0.03, pleth: 2.1,
@@ -49,6 +30,9 @@ interface AppState {
   resultState: TabularState | null;   // the state `result` was computed from
   loading: boolean;
   error: string | null;
+  // Bumped whenever a recommendation is saved to MongoDB, so the history panel
+  // knows to refetch without the two stores having to know about each other.
+  savedCount: number;
   setField: (k: keyof TabularState, v: number) => void;
   loadPatient: (p: Patient) => void;
   resetPatient: () => void;
@@ -74,6 +58,7 @@ export const useStore = create<AppState>((set, get) => {
     resultState: null,
     loading: false,
     error: null,
+    savedCount: 0,
     // editing any field detaches the working state from the patient's recorded state
     setField: (k, v) => set((s) => ({
       tabular: { ...s.tabular, [k]: v }, edited: true,
@@ -101,7 +86,7 @@ export const useStore = create<AppState>((set, get) => {
         edited: false,
         waveformAvailable,
         selectedTrack: p.track && waveformAvailable ? p.track : "track_a",
-        ventilationMode: p.ventilationMode ?? "unknown",
+        ventilationMode: p.ventilation_mode ?? "unknown",
         ...waveform,
         result: null,
         resultState: null,
@@ -124,6 +109,7 @@ export const useStore = create<AppState>((set, get) => {
       try {
         const req: RecommendationRequest = {
           patient_id: s.patientId,
+          patient_name: s.patientName,
           patient_weight: s.patientWeight,
           track: s.selectedTrack,
           // RASS is an int server-side; the rest are floats.
@@ -139,9 +125,15 @@ export const useStore = create<AppState>((set, get) => {
           };
         }
         const result = await getRecommendation(req);
-        set({ result, resultState: { ...req.tabular_state }, loading: false });
+        set((st) => ({
+          result,
+          resultState: { ...req.tabular_state },
+          loading: false,
+          // Only nudge the history panel when the API actually stored the record.
+          savedCount: result.record_id ? st.savedCount + 1 : st.savedCount,
+        }));
       } catch (e: any) {
-        set({ error: describeApiError(e), loading: false });
+        set({ error: apiErrorMessage(e), loading: false });
       }
     },
   };
