@@ -99,6 +99,63 @@ def test_high_responsiveness_makes_stable_act():
     assert rec["decision_margin"] <= 0, "an induced action should have a non-positive margin"
 
 
+def test_overridden_hold_is_surfaced_as_an_alternative():
+    """The action responsiveness overrode must stay visible to the clinician.
+
+    Regression: the ranking was computed on the responsiveness-BIASED Q, which
+    lifted every non-hold action above "hold" and pushed "hold" out of the top-3
+    — so at responsiveness ≥ 0.5 the panel showed three variants of "act" and no
+    hint that the policy had preferred to do nothing.
+    """
+    router = _router_or_skip()
+    for r in (0.5, 1.0):
+        rec = router.run_track_a(_STABLE, responsiveness=r)
+        if rec["action"] == PR.HOLD_ACTION:
+            continue                      # never overridden; nothing to surface
+        holds = [a for a in rec["alternatives"]
+                 if (a["delta_PEEP"], a["delta_TV"], a["delta_FiO2"]) == (0, 0, 0.0)]
+        assert holds, (f"responsiveness={r} overrode hold but hold is absent from "
+                       f"alternatives — the override is invisible to the clinician")
+        assert holds[0]["margin_from_best"] < 0, \
+            "an overridden hold must carry a negative margin (policy rated it higher)"
+
+
+def test_reported_margins_are_free_of_the_responsiveness_bonus():
+    """Margins describe the policy's real preference, not the biased ranking.
+
+    Regression: margins were inflated by the bonus, so an alternative the policy
+    rated ABOVE the served action was reported with a positive margin — the sign
+    was flipped, reading as "slightly worse" when it was actually better.
+    """
+    router = _router_or_skip()
+    base = router.run_track_a(_STABLE, responsiveness=0.0)
+    q_by_action = {e["action_idx"]: e["q_value"] for e in base["ranked"]}
+    for r in (0.25, 0.5, 1.0):
+        rec = router.run_track_a(_STABLE, responsiveness=r)
+        for e in rec["ranked"]:
+            if e["action_idx"] not in q_by_action:
+                continue                  # not in the unbiased top-3; nothing to compare
+            assert abs(e["q_value"] - q_by_action[e["action_idx"]]) < 1e-6, \
+                (f"responsiveness={r} leaked the bonus into the reported q_value for "
+                 f"action {e['action_idx']}")
+        chosen_q = rec["ranked"][0]["q_value"]
+        for e in rec["ranked"]:
+            assert abs(e["margin_from_best"] - (chosen_q - e["q_value"])) < 1e-6, \
+                "margin must equal (served Q − alternative Q) on the raw Q-values"
+
+
+def test_ranking_leads_with_the_served_action():
+    """Rank 0 is what the clinician was told to do, at every responsiveness."""
+    router = _router_or_skip()
+    for r in (0.0, 0.25, 0.5, 1.0):
+        rec = router.run_track_a(_STABLE, responsiveness=r)
+        assert rec["ranked"][0]["action_idx"] == rec["action"], \
+            f"responsiveness={r}: ranked[0] is not the served action"
+        assert rec["ranked"][0]["margin_from_best"] == 0.0
+        idxs = [e["action_idx"] for e in rec["ranked"]]
+        assert len(idxs) == len(set(idxs)), "duplicate action in the ranked list"
+
+
 def test_acting_cases_are_invariant_to_responsiveness():
     router = _router_or_skip()
     for name, s in _ACTING.items():

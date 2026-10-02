@@ -45,18 +45,33 @@ HOLD_ACTION = action_space.encode_action(0, 0, 0.0)
 RESPONSIVENESS_SCALE = 2.0
 
 
-def _rank_actions(q: np.ndarray, k: int = 3,
+def _rank_actions(q: np.ndarray, chosen: int, k: int = 3,
                   margin_threshold: float = ALT_MARGIN_THRESHOLD) -> dict:
-    """Top-k actions by Q-value with margins (Section 14.4 fix 1).
+    """Top-k actions with margins, measured from the action actually served.
 
-    Takes a precomputed Q vector (shape (125,)) and returns the full ranked list
-    plus the subset of non-argmax actions whose margin from the best is below
-    ``margin_threshold`` (the ones worth showing as "next-best" alternatives).
-    Surfacing these makes the policy's responsiveness visible even when "hold"
-    wins by a thin margin.
+    ``q`` must be the **raw** Q (restricted to allowed actions), never the
+    responsiveness-biased one — the margins are what the UI shows a clinician, so
+    they have to describe the policy's genuine preference ordering, not the
+    ordering after an operator-set bias was folded in. Ranking on the biased Q
+    inflated every margin by the bonus and pushed "hold" out of the top-k exactly
+    when responsiveness had overridden it, hiding from the clinician that the
+    policy had preferred to do nothing.
+
+    ``chosen`` (the served action) always leads the list at rank 0, so
+    ``margin_from_best`` reads "how much better than this is the recommendation
+    you were given". When responsiveness forced a non-argmax action the entry the
+    policy actually preferred appears with a **negative** margin — that is the
+    signal, not a glitch.
+
+    At ``responsiveness == 0`` ``chosen`` is the argmax of ``q``, so this is
+    identical to ranking by Q with margins from the best (the gated behaviour).
     """
-    order = [int(i) for i in np.argsort(q)[::-1][:k]]
-    best_q = float(q[order[0]])
+    finite = [int(i) for i in np.argsort(q)[::-1] if np.isfinite(q[int(i)])]
+    order = finite[:k]
+    if chosen in order:
+        order.remove(chosen)
+    order = [chosen] + order[:max(0, k - 1)]
+    chosen_q = float(q[chosen])
     ranked = []
     for rank, idx in enumerate(order):
         dp, dt, df = action_space.decode_action(idx)
@@ -64,7 +79,7 @@ def _rank_actions(q: np.ndarray, k: int = 3,
             "rank": rank, "action_idx": idx,
             "delta_PEEP": dp, "delta_TV": dt, "delta_FiO2": df,
             "q_value": float(q[idx]),
-            "margin_from_best": best_q - float(q[idx]),
+            "margin_from_best": chosen_q - float(q[idx]),
         })
     alternatives = [r for r in ranked[1:]
                     if r["margin_from_best"] < margin_threshold]
@@ -81,7 +96,7 @@ def _apply_responsiveness(q: np.ndarray, responsiveness: float) -> np.ndarray:
     ``responsiveness == 0`` returns an unchanged copy (the deployed behaviour).
     """
     if responsiveness <= 0:
-        return q
+        return q.copy()
     qe = q.copy()
     mask = np.arange(len(q)) != HOLD_ACTION
     qe[mask] += float(responsiveness) * RESPONSIVENESS_SCALE
@@ -206,7 +221,8 @@ class PolicyRouter:
         q = self.track_a.q_values(z)                        # raw Q, shape (125,)
         action, q_eff, q_conf, masked = _select_action(q, responsiveness, ventilation_mode)
         dp, dt, df = action_space.decode_action(action)
-        ranking = _rank_actions(q_eff)
+        # Rank on the RAW (allowed-only) Q, not q_eff — see _rank_actions.
+        ranking = _rank_actions(q_conf, action)
         ood = self._ood(z)
         conf = _decision_confidence(q_conf, _ood_weight(CONF_WEIGHT_CLINICAL, ood),
                                     chosen=action)
@@ -252,7 +268,8 @@ class PolicyRouter:
         q = self.track_a.q_values(z)                        # raw Q, shape (125,)
         action, q_eff, q_conf, masked = _select_action(q, responsiveness, ventilation_mode)
         dp, dt, df = action_space.decode_action(action)
-        ranking = _rank_actions(q_eff)
+        # Rank on the RAW (allowed-only) Q, not q_eff — see _rank_actions.
+        ranking = _rank_actions(q_conf, action)
         # Waveform coverage raises the information-content ceiling from the
         # clinical-only cap up to the full-waveform cap; the decision sharpness
         # (the Q-margin) is the same because Track B delegates to Track A.

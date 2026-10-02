@@ -31,6 +31,8 @@ const WAVE_FIELDS = [
   ["rrv", "RRV"], ["breathReg", "Breath Reg"], ["asynchrony", "Asynchrony"],
 ] as const;
 
+const pct = (v: number) => (v === 0 ? "conservative" : `${Math.round(v * 100)}%`);
+
 export function PatientDetail() {
   const { patientId } = useParams<{ patientId: string }>();
   const s = useStore();
@@ -75,6 +77,26 @@ export function PatientDetail() {
         .filter((k) => s.resultState![k] !== s.tabular[k])
         .map((k) => ({ key: k, was: s.resultState![k], now: s.tabular[k] }))
     : [];
+  // The knobs are inputs too. Without this a moved responsiveness slider left the
+  // previous recommendation on screen with no warning, so the control looked dead.
+  const m = s.resultMeta;
+  const staleKnobs = m
+    ? [
+        m.responsiveness !== s.responsiveness
+          ? { key: "Responsiveness", was: pct(m.responsiveness), now: pct(s.responsiveness) }
+          : null,
+        m.ventilationMode !== s.ventilationMode
+          ? { key: "Ventilation mode", was: m.ventilationMode, now: s.ventilationMode }
+          : null,
+        m.track !== s.selectedTrack
+          ? { key: "Track", was: m.track, now: s.selectedTrack }
+          : null,
+      ].filter(Boolean) as { key: string; was: string; now: string }[]
+    : [];
+  // Responsiveness only moves the hold-vs-act line, so once the policy is already
+  // recommending a change no slider position can alter it. Saying so beats leaving
+  // the clinician to conclude the control is broken.
+  const recIsActing = !!rec && !!(rec.delta_PEEP || rec.delta_TV || rec.delta_FiO2);
   const level = worstLevel(s.tabular);
   const tone = level === "crit" ? "rose" : level === "warn" ? "amber" : "cyan";
 
@@ -221,6 +243,13 @@ export function PatientDetail() {
                 Lowers the bar to leave “hold” — never changes which change is chosen when acting,
                 and the safety filter still applies.
               </p>
+              {recIsActing && (
+                <p className="mt-1.5 text-[11px] leading-relaxed text-amber-700">
+                  No effect on this patient: the policy is already recommending a change, and this
+                  slider only decides whether to act — not what to do. It matters on a patient the
+                  policy is holding.
+                </p>
+              )}
             </div>
 
             <div className="mt-5">
@@ -288,6 +317,24 @@ export function PatientDetail() {
                 </div>
               )}
 
+              {staleKnobs.length > 0 && (
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-[11px] text-amber-800">
+                  <span>
+                    {staleKnobs.map((k) => (
+                      <span key={k.key} className="mr-3">
+                        <span className="font-semibold">{k.key}</span> changed{" "}
+                        <span className="num">{k.was}</span> →{" "}
+                        <span className="num font-semibold">{k.now}</span>
+                      </span>
+                    ))}
+                    — this result was computed before that.
+                  </span>
+                  <button onClick={() => s.fetch()} disabled={s.loading} className="btn-ghost">
+                    <RefreshCw size={12} /> Re-run
+                  </button>
+                </div>
+              )}
+
               <section className="panel animate-rise relative overflow-hidden p-6">
                 <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-400/60 to-transparent" />
                 <div className="mb-5 flex items-center justify-between gap-3">
@@ -328,9 +375,18 @@ export function PatientDetail() {
                     {rec.alternatives.map((a, i) => (
                       <p key={i} className="mt-1 flex items-baseline justify-between gap-3 text-xs text-slate-600">
                         <span>{a.action_text}</span>
-                        <span className="num shrink-0 text-slate-400">
-                          margin {a.margin_from_best.toFixed(2)}
-                        </span>
+                        {/* A negative margin means responsiveness served something the
+                            policy itself rated lower — say so in words, because a bare
+                            "-0.45" reads like a near-tie rather than an override. */}
+                        {a.preferred_by_policy ? (
+                          <span className="num shrink-0 font-medium text-amber-600">
+                            policy preferred this ({a.margin_from_best.toFixed(2)})
+                          </span>
+                        ) : (
+                          <span className="num shrink-0 text-slate-400">
+                            margin {a.margin_from_best.toFixed(2)}
+                          </span>
+                        )}
                       </p>
                     ))}
                   </div>

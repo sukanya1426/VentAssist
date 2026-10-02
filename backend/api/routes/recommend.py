@@ -132,7 +132,8 @@ async def recommend(
             delta_PEEP=a["delta_PEEP"], delta_TV=a["delta_TV"],
             delta_FiO2=a["delta_FiO2"],
             action_text=_action_text(a["delta_PEEP"], a["delta_TV"], a["delta_FiO2"]),
-            margin_from_best=round(a["margin_from_best"], 4))
+            margin_from_best=round(a["margin_from_best"], 4),
+            preferred_by_policy=a["margin_from_best"] < 0)
         for a in routing.get("alternatives", [])
     ]
     resp = M.RecommendationResponse(

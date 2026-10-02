@@ -14,6 +14,13 @@ const DEFAULT_WAVEFORM = {
   rrv: 0.19, breathReg: 0.81, asynchrony: 0.1,
 };
 
+/** The non-state inputs that also determine a recommendation. */
+export interface ResultMeta {
+  responsiveness: number;
+  ventilationMode: string;
+  track: Track;
+}
+
 interface AppState {
   patientId: string;          // roster id, e.g. "patient-a"
   patientName: string;
@@ -28,6 +35,11 @@ interface AppState {
   rrv: number; breathReg: number; asynchrony: number;
   result: RecommendationResponse | null;
   resultState: TabularState | null;   // the state `result` was computed from
+  // The knobs `result` was computed with. Separate from resultState because they
+  // are not patient state, but they change the recommendation just as much — and
+  // without them a moved slider leaves a stale panel on screen with no warning,
+  // which reads as "the slider does nothing".
+  resultMeta: ResultMeta | null;
   loading: boolean;
   error: string | null;
   // Bumped whenever a recommendation is saved to MongoDB, so the history panel
@@ -56,6 +68,7 @@ export const useStore = create<AppState>((set, get) => {
     ...DEFAULT_WAVEFORM,
     result: null,
     resultState: null,
+    resultMeta: null,
     loading: false,
     error: null,
     savedCount: 0,
@@ -90,6 +103,7 @@ export const useStore = create<AppState>((set, get) => {
         ...waveform,
         result: null,
         resultState: null,
+        resultMeta: null,
         error: null,
       });
     },
@@ -128,6 +142,11 @@ export const useStore = create<AppState>((set, get) => {
         set((st) => ({
           result,
           resultState: { ...req.tabular_state },
+          resultMeta: {
+            responsiveness: s.responsiveness,
+            ventilationMode: s.ventilationMode,
+            track: s.selectedTrack,
+          },
           loading: false,
           // Only nudge the history panel when the API actually stored the record.
           savedCount: result.record_id ? st.savedCount + 1 : st.savedCount,

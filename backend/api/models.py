@@ -102,7 +102,11 @@ class AlternativeAction(BaseModel):
     delta_TV: int
     delta_FiO2: float
     action_text: str
+    # Q-gap from the action that was served, on the policy's RAW Q-values.
+    # NEGATIVE means the policy rated this alternative ABOVE the recommendation —
+    # which happens when a responsiveness override pushed it off its own argmax.
     margin_from_best: float
+    preferred_by_policy: bool = False
 
 
 class Recommendation(BaseModel):

@@ -40,7 +40,10 @@ export interface AlternativeAction {
   delta_TV: number;
   delta_FiO2: number;
   action_text: string;
+  /** Q-gap from the served recommendation. Negative ⇒ the policy rated this higher. */
   margin_from_best: number;
+  /** True when a responsiveness override served something the policy rated lower. */
+  preferred_by_policy?: boolean;
 }
 
 export interface SHAPEntry {
