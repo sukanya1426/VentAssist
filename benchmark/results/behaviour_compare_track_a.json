@@ -1,0 +1,94 @@
+{
+  "track": "a",
+  "n_test": 198050,
+  "n_transitions": 992100,
+  "agreement": {
+    "exact_125_way": 0.5699,
+    "per_knob": {
+      "delta_PEEP": 0.8973,
+      "delta_TV": 0.695,
+      "delta_FiO2": 0.8807
+    },
+    "directional": {
+      "delta_PEEP": 0.898,
+      "delta_TV": 0.7014,
+      "delta_FiO2": 0.8811,
+      "all_three": 0.5748
+    },
+    "hold_share_policy": 0.6894,
+    "hold_share_clinician": 0.7765,
+    "hold_agreement": 0.6298
+  },
+  "deviation_policy_minus_clinician": {
+    "delta_PEEP": {
+      "mean_signed": 0.08196,
+      "mean_absolute": 0.19004,
+      "std": 0.60125,
+      "p05": 0.0,
+      "median": 0.0,
+      "p95": 2.0,
+      "share_policy_lower": 0.0295,
+      "share_equal": 0.8973,
+      "share_policy_higher": 0.0732
+    },
+    "delta_TV": {
+      "mean_signed": -6.0462,
+      "mean_absolute": 13.59808,
+      "std": 25.18099,
+      "p05": -50.0,
+      "median": 0.0,
+      "p95": 25.0,
+      "share_policy_lower": 0.2061,
+      "share_equal": 0.695,
+      "share_policy_higher": 0.0989
+    },
+    "delta_FiO2": {
+      "mean_signed": -0.00343,
+      "mean_absolute": 0.01172,
+      "std": 0.0341,
+      "p05": -0.1,
+      "median": 0.0,
+      "p95": 0.0,
+      "share_policy_lower": 0.0761,
+      "share_equal": 0.8807,
+      "share_policy_higher": 0.0432
+    }
+  },
+  "churn": {
+    "policy": {
+      "n_consecutive_pairs": 193258,
+      "action_changed": 0.1465,
+      "per_knob_changed": {
+        "delta_PEEP": 0.0449,
+        "delta_TV": 0.0764,
+        "delta_FiO2": 0.0611
+      },
+      "per_knob_reversed": {
+        "delta_PEEP": 0.0003,
+        "delta_TV": 0.0033,
+        "delta_FiO2": 0.0009
+      }
+    },
+    "clinician": {
+      "n_consecutive_pairs": 193258,
+      "action_changed": 0.4073,
+      "per_knob_changed": {
+        "delta_PEEP": 0.1044,
+        "delta_TV": 0.3121,
+        "delta_FiO2": 0.1038
+      },
+      "per_knob_reversed": {
+        "delta_PEEP": 0.0057,
+        "delta_TV": 0.0082,
+        "delta_FiO2": 0.0033
+      }
+    }
+  },
+  "notes": {
+    "encoding": "policy scored with transform_inference (serving encoding)",
+    "churn_basis": "consecutive hours within one stay only; episode boundaries and charting gaps excluded",
+    "causality": "evaluated on the clinician's observed trajectory, so churn is 'how much the advice would have jittered along this course', not the churn of a counterfactual course",
+    "responsiveness": "0.0 (deployed default) \u2014 a non-zero slider changes the hold/act boundary and therefore every number here"
+  },
+  "timestamp": "2026-10-07T06:05:18.512218+00:00"
+}
