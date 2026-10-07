@@ -1,0 +1,60 @@
+# Keep the image to what actually answers requests.
+#
+# The big exclusions and why:
+#   backend/models/bc_track_a.pkl      257 MB  behaviour-clone baseline, OPE only
+#   backend/models/nwe_model*.pkl    2x197 MB  NWE rollout models, OPE only
+#   backend/data/processed/*.parquet    ~75 MB  the MDP itself; the API only needs
+#                                              mdp_track_*_treesample.parquet (56 KB)
+# Shipping those would be ~700 MB of image for code that never runs in
+# production, and reading the 42 MB track-A parquet at startup is enough RSS to
+# OOM a 512 MB instance.
+
+.git
+.gitignore
+.venv
+venv
+__pycache__
+**/__pycache__
+*.pyc
+.pytest_cache
+.claude
+
+# Raw MIMIC-IV / waveform data
+files/
+eicu-collaborative-research-database-2.0
+
+# Frontend builds on Vercel, not here
+frontend/
+
+# Research-only code paths. The API imports none of these.
+backend/tests/
+benchmark/
+physionet_scripts/
+backend/scripts/
+backend/ope/
+backend/rl/trainer.py
+
+# Offline-only model artifacts (see header)
+backend/models/bc_track_*.pkl
+backend/models/nwe_model*.pkl
+backend/models/cqi_track_*.pkl
+backend/models/propensity_model.pkl
+backend/models/*.rejected
+
+# The MDP and intermediate pipeline outputs. The treesample parquets are
+# re-included below because the decision-rule explanation needs them.
+backend/data/processed/*
+!backend/data/processed/mdp_track_a_treesample.parquet
+!backend/data/processed/mdp_track_b_treesample.parquet
+
+# Local env and logs. backend/logs/*.json powers /api/validation, so those are
+# re-included; the .log/.out files are build noise.
+backend/.env
+backend/logs/*.log
+backend/logs/*.out
+
+# Docs and dev scripts
+*.md
+run.sh
+Dockerfile
+.dockerignore

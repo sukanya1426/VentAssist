@@ -27,7 +27,15 @@ _services: Optional[Services] = None
 
 
 def _distil(track: str, router: PolicyRouter):
+    # Full MDP parquet when present (local dev), else the 56 KB pre-subsampled
+    # one. A deployment ships only the sample: the full track-A parquet is 42 MB
+    # and reading it costs a few hundred MB of RSS — enough to OOM a small
+    # container — while this function immediately throws 99.8% of it away. The
+    # sample was drawn with the same seed used below, so the deployed decision
+    # tree is identical to the local one.
     path = config.PROCESSED_PATH / f"mdp_track_{track}.parquet"
+    if not path.exists():
+        path = config.PROCESSED_PATH / f"mdp_track_{track}_treesample.parquet"
     if not path.exists():
         return None
     df = pd.read_parquet(path)

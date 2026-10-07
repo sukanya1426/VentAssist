@@ -1,0 +1,15 @@
+{
+  "track": "a",
+  "estimator": "behaviour_mc",
+  "V_hat": -1.3034,
+  "v_hat": -1.3034,
+  "V_std": 7.0567,
+  "ci95_low": -1.5077,
+  "ci95_high": -1.0986,
+  "n_episodes": 23955,
+  "n_test_episodes": 4792,
+  "n_transitions": 992100,
+  "gamma": 0.99,
+  "V_hat_all_splits": -1.2622,
+  "timestamp": "2026-10-04T08:28:22.583346+00:00"
+}

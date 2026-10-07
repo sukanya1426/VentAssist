@@ -1,0 +1,43 @@
+# Serving-only dependencies — what `backend.api.main:app` needs to answer
+# requests. Use this for a deployed container, NOT requirements.txt.
+#
+# requirements.txt is the full research environment: it additionally pulls
+# gpytorch (GP blood-gas imputation), d3rlpy (offline-RL baselines) and shap
+# (the optional SHAP cross-check), none of which are imported anywhere under
+# backend/api, backend/router, backend/mdp or backend/explainability. They are
+# training- and analysis-time only, and d3rlpy and shap between them drag in
+# gym, numba and llvmlite, which roughly doubles the image for code that never
+# executes in production.
+#
+# Install torch from the CPU index or you get the CUDA build, which is ~2 GB of
+# GPU runtime that cannot be used on any of these hosts:
+#   pip install --no-cache-dir -r backend/requirements-serve.txt \
+#       --extra-index-url https://download.pytorch.org/whl/cpu
+# The Dockerfile already does this.
+
+fastapi==0.111.0
+uvicorn[standard]==0.30.1
+pydantic==2.7.0
+
+# Inference. torch loads the HybridIQL checkpoint and the OOD autoencoder.
+torch==2.3.0
+numpy==1.26.4
+
+# scikit-learn: the Track B feature imputer and the decision-tree distillation
+# are both sklearn estimators unpickled/fitted at startup.
+scikit-learn==1.5.0
+
+# pandas + pyarrow: read the tree-distillation sample at startup.
+pandas==2.2.0
+pyarrow==16.0.0
+
+# scipy + wfdb: waveform feature extraction behind POST /api/waveform/extract
+# and /extract-record. Drop both only if you also remove those routes.
+scipy==1.13.0
+wfdb==4.1.2
+
+# PostgreSQL: clinician accounts, patient roster, recommendation history.
+asyncpg==0.31.0
+
+python-dotenv==1.0.1
+pyyaml==6.0.1

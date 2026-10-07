@@ -1,0 +1,42 @@
+{
+  "comparison": "V_hat(pi_18dim) - V_hat(pi_12dim) on Track B test episodes",
+  "v_hat_18dim": 3.0848,
+  "v_hat_18dim_CI95": [
+    2.8674,
+    3.3152
+  ],
+  "v_hat_12dim": 3.0848,
+  "v_hat_12dim_CI95": [
+    2.8674,
+    3.3152
+  ],
+  "delta_v": 0.0,
+  "delta_v_CI95": [
+    0.0,
+    0.0
+  ],
+  "n_test_transitions": 205,
+  "n_test_episodes": 8,
+  "arm_18dim": {
+    "n_transitions": 636,
+    "init_from": "policy_track_a.pt",
+    "init_from_n_transitions": 694383,
+    "effective_n": 695019,
+    "lam_causal": 2.0,
+    "w_outcome": 0.25
+  },
+  "arm_12dim": {
+    "n_transitions": 694383,
+    "init_from": null,
+    "init_from_n_transitions": null,
+    "effective_n": 694383,
+    "lam_causal": 2.0,
+    "w_outcome": 0.25
+  },
+  "is_underpowered": true,
+  "is_confounded_by_train_size": false,
+  "is_reward_mismatched": false,
+  "is_nested": true,
+  "power_note": "Held out 8 episodes / 205 transitions. UNDERPOWERED: fewer than 10 held-out episodes, so the bootstrap CI understates the true uncertainty and NO significance is claimed. NESTED comparison: the 18-dim arm was warm-started from policy_track_a.pt (inheriting a Q-function fitted on 694383 transitions) and fine-tuned on 636, with the waveform dims initialised to zero influence. Both arms therefore rest on the same base fit and the same reward, so \u0394V\u0302 reflects the 6 extra state dimensions. It remains an on-policy greedy-value point estimate, not an FQE. See SYSTEM_SUMMARY \u00a74, \u00a714.",
+  "timestamp": "2026-10-02T07:33:49.067206+00:00"
+}

@@ -1,0 +1,877 @@
+{
+  "0": {
+    "delta_PEEP_cmH2O": -2,
+    "delta_TV_mL": -50,
+    "delta_FiO2": -0.1,
+    "description": "PEEP -2 cmH2O, TV -50 mL, FiO2 -0.10",
+    "valid": true
+  },
+  "1": {
+    "delta_PEEP_cmH2O": -2,
+    "delta_TV_mL": -50,
+    "delta_FiO2": -0.05,
+    "description": "PEEP -2 cmH2O, TV -50 mL, FiO2 -0.05",
+    "valid": true
+  },
+  "2": {
+    "delta_PEEP_cmH2O": -2,
+    "delta_TV_mL": -50,
+    "delta_FiO2": 0.0,
+    "description": "PEEP -2 cmH2O, TV -50 mL, FiO2 unchanged",
+    "valid": true
+  },
+  "3": {
+    "delta_PEEP_cmH2O": -2,
+    "delta_TV_mL": -50,
+    "delta_FiO2": 0.05,
+    "description": "PEEP -2 cmH2O, TV -50 mL, FiO2 +0.05",
+    "valid": true
+  },
+  "4": {
+    "delta_PEEP_cmH2O": -2,
+    "delta_TV_mL": -50,
+    "delta_FiO2": 0.1,
+    "description": "PEEP -2 cmH2O, TV -50 mL, FiO2 +0.10",
+    "valid": true
+  },
+  "5": {
+    "delta_PEEP_cmH2O": -2,
+    "delta_TV_mL": -25,
+    "delta_FiO2": -0.1,
+    "description": "PEEP -2 cmH2O, TV -25 mL, FiO2 -0.10",
+    "valid": true
+  },
+  "6": {
+    "delta_PEEP_cmH2O": -2,
+    "delta_TV_mL": -25,
+    "delta_FiO2": -0.05,
+    "description": "PEEP -2 cmH2O, TV -25 mL, FiO2 -0.05",
+    "valid": true
+  },
+  "7": {
+    "delta_PEEP_cmH2O": -2,
+    "delta_TV_mL": -25,
+    "delta_FiO2": 0.0,
+    "description": "PEEP -2 cmH2O, TV -25 mL, FiO2 unchanged",
+    "valid": true
+  },
+  "8": {
+    "delta_PEEP_cmH2O": -2,
+    "delta_TV_mL": -25,
+    "delta_FiO2": 0.05,
+    "description": "PEEP -2 cmH2O, TV -25 mL, FiO2 +0.05",
+    "valid": false
+  },
+  "9": {
+    "delta_PEEP_cmH2O": -2,
+    "delta_TV_mL": -25,
+    "delta_FiO2": 0.1,
+    "description": "PEEP -2 cmH2O, TV -25 mL, FiO2 +0.10",
+    "valid": true
+  },
+  "10": {
+    "delta_PEEP_cmH2O": -2,
+    "delta_TV_mL": 0,
+    "delta_FiO2": -0.1,
+    "description": "PEEP -2 cmH2O, TV unchanged, FiO2 -0.10",
+    "valid": true
+  },
+  "11": {
+    "delta_PEEP_cmH2O": -2,
+    "delta_TV_mL": 0,
+    "delta_FiO2": -0.05,
+    "description": "PEEP -2 cmH2O, TV unchanged, FiO2 -0.05",
+    "valid": true
+  },
+  "12": {
+    "delta_PEEP_cmH2O": -2,
+    "delta_TV_mL": 0,
+    "delta_FiO2": 0.0,
+    "description": "PEEP -2 cmH2O, TV unchanged, FiO2 unchanged",
+    "valid": true
+  },
+  "13": {
+    "delta_PEEP_cmH2O": -2,
+    "delta_TV_mL": 0,
+    "delta_FiO2": 0.05,
+    "description": "PEEP -2 cmH2O, TV unchanged, FiO2 +0.05",
+    "valid": true
+  },
+  "14": {
+    "delta_PEEP_cmH2O": -2,
+    "delta_TV_mL": 0,
+    "delta_FiO2": 0.1,
+    "description": "PEEP -2 cmH2O, TV unchanged, FiO2 +0.10",
+    "valid": true
+  },
+  "15": {
+    "delta_PEEP_cmH2O": -2,
+    "delta_TV_mL": 25,
+    "delta_FiO2": -0.1,
+    "description": "PEEP -2 cmH2O, TV +25 mL, FiO2 -0.10",
+    "valid": true
+  },
+  "16": {
+    "delta_PEEP_cmH2O": -2,
+    "delta_TV_mL": 25,
+    "delta_FiO2": -0.05,
+    "description": "PEEP -2 cmH2O, TV +25 mL, FiO2 -0.05",
+    "valid": true
+  },
+  "17": {
+    "delta_PEEP_cmH2O": -2,
+    "delta_TV_mL": 25,
+    "delta_FiO2": 0.0,
+    "description": "PEEP -2 cmH2O, TV +25 mL, FiO2 unchanged",
+    "valid": true
+  },
+  "18": {
+    "delta_PEEP_cmH2O": -2,
+    "delta_TV_mL": 25,
+    "delta_FiO2": 0.05,
+    "description": "PEEP -2 cmH2O, TV +25 mL, FiO2 +0.05",
+    "valid": false
+  },
+  "19": {
+    "delta_PEEP_cmH2O": -2,
+    "delta_TV_mL": 25,
+    "delta_FiO2": 0.1,
+    "description": "PEEP -2 cmH2O, TV +25 mL, FiO2 +0.10",
+    "valid": true
+  },
+  "20": {
+    "delta_PEEP_cmH2O": -2,
+    "delta_TV_mL": 50,
+    "delta_FiO2": -0.1,
+    "description": "PEEP -2 cmH2O, TV +50 mL, FiO2 -0.10",
+    "valid": true
+  },
+  "21": {
+    "delta_PEEP_cmH2O": -2,
+    "delta_TV_mL": 50,
+    "delta_FiO2": -0.05,
+    "description": "PEEP -2 cmH2O, TV +50 mL, FiO2 -0.05",
+    "valid": true
+  },
+  "22": {
+    "delta_PEEP_cmH2O": -2,
+    "delta_TV_mL": 50,
+    "delta_FiO2": 0.0,
+    "description": "PEEP -2 cmH2O, TV +50 mL, FiO2 unchanged",
+    "valid": true
+  },
+  "23": {
+    "delta_PEEP_cmH2O": -2,
+    "delta_TV_mL": 50,
+    "delta_FiO2": 0.05,
+    "description": "PEEP -2 cmH2O, TV +50 mL, FiO2 +0.05",
+    "valid": true
+  },
+  "24": {
+    "delta_PEEP_cmH2O": -2,
+    "delta_TV_mL": 50,
+    "delta_FiO2": 0.1,
+    "description": "PEEP -2 cmH2O, TV +50 mL, FiO2 +0.10",
+    "valid": true
+  },
+  "25": {
+    "delta_PEEP_cmH2O": -1,
+    "delta_TV_mL": -50,
+    "delta_FiO2": -0.1,
+    "description": "PEEP -1 cmH2O, TV -50 mL, FiO2 -0.10",
+    "valid": true
+  },
+  "26": {
+    "delta_PEEP_cmH2O": -1,
+    "delta_TV_mL": -50,
+    "delta_FiO2": -0.05,
+    "description": "PEEP -1 cmH2O, TV -50 mL, FiO2 -0.05",
+    "valid": false
+  },
+  "27": {
+    "delta_PEEP_cmH2O": -1,
+    "delta_TV_mL": -50,
+    "delta_FiO2": 0.0,
+    "description": "PEEP -1 cmH2O, TV -50 mL, FiO2 unchanged",
+    "valid": true
+  },
+  "28": {
+    "delta_PEEP_cmH2O": -1,
+    "delta_TV_mL": -50,
+    "delta_FiO2": 0.05,
+    "description": "PEEP -1 cmH2O, TV -50 mL, FiO2 +0.05",
+    "valid": false
+  },
+  "29": {
+    "delta_PEEP_cmH2O": -1,
+    "delta_TV_mL": -50,
+    "delta_FiO2": 0.1,
+    "description": "PEEP -1 cmH2O, TV -50 mL, FiO2 +0.10",
+    "valid": true
+  },
+  "30": {
+    "delta_PEEP_cmH2O": -1,
+    "delta_TV_mL": -25,
+    "delta_FiO2": -0.1,
+    "description": "PEEP -1 cmH2O, TV -25 mL, FiO2 -0.10",
+    "valid": true
+  },
+  "31": {
+    "delta_PEEP_cmH2O": -1,
+    "delta_TV_mL": -25,
+    "delta_FiO2": -0.05,
+    "description": "PEEP -1 cmH2O, TV -25 mL, FiO2 -0.05",
+    "valid": true
+  },
+  "32": {
+    "delta_PEEP_cmH2O": -1,
+    "delta_TV_mL": -25,
+    "delta_FiO2": 0.0,
+    "description": "PEEP -1 cmH2O, TV -25 mL, FiO2 unchanged",
+    "valid": true
+  },
+  "33": {
+    "delta_PEEP_cmH2O": -1,
+    "delta_TV_mL": -25,
+    "delta_FiO2": 0.05,
+    "description": "PEEP -1 cmH2O, TV -25 mL, FiO2 +0.05",
+    "valid": false
+  },
+  "34": {
+    "delta_PEEP_cmH2O": -1,
+    "delta_TV_mL": -25,
+    "delta_FiO2": 0.1,
+    "description": "PEEP -1 cmH2O, TV -25 mL, FiO2 +0.10",
+    "valid": true
+  },
+  "35": {
+    "delta_PEEP_cmH2O": -1,
+    "delta_TV_mL": 0,
+    "delta_FiO2": -0.1,
+    "description": "PEEP -1 cmH2O, TV unchanged, FiO2 -0.10",
+    "valid": true
+  },
+  "36": {
+    "delta_PEEP_cmH2O": -1,
+    "delta_TV_mL": 0,
+    "delta_FiO2": -0.05,
+    "description": "PEEP -1 cmH2O, TV unchanged, FiO2 -0.05",
+    "valid": true
+  },
+  "37": {
+    "delta_PEEP_cmH2O": -1,
+    "delta_TV_mL": 0,
+    "delta_FiO2": 0.0,
+    "description": "PEEP -1 cmH2O, TV unchanged, FiO2 unchanged",
+    "valid": true
+  },
+  "38": {
+    "delta_PEEP_cmH2O": -1,
+    "delta_TV_mL": 0,
+    "delta_FiO2": 0.05,
+    "description": "PEEP -1 cmH2O, TV unchanged, FiO2 +0.05",
+    "valid": true
+  },
+  "39": {
+    "delta_PEEP_cmH2O": -1,
+    "delta_TV_mL": 0,
+    "delta_FiO2": 0.1,
+    "description": "PEEP -1 cmH2O, TV unchanged, FiO2 +0.10",
+    "valid": true
+  },
+  "40": {
+    "delta_PEEP_cmH2O": -1,
+    "delta_TV_mL": 25,
+    "delta_FiO2": -0.1,
+    "description": "PEEP -1 cmH2O, TV +25 mL, FiO2 -0.10",
+    "valid": true
+  },
+  "41": {
+    "delta_PEEP_cmH2O": -1,
+    "delta_TV_mL": 25,
+    "delta_FiO2": -0.05,
+    "description": "PEEP -1 cmH2O, TV +25 mL, FiO2 -0.05",
+    "valid": true
+  },
+  "42": {
+    "delta_PEEP_cmH2O": -1,
+    "delta_TV_mL": 25,
+    "delta_FiO2": 0.0,
+    "description": "PEEP -1 cmH2O, TV +25 mL, FiO2 unchanged",
+    "valid": true
+  },
+  "43": {
+    "delta_PEEP_cmH2O": -1,
+    "delta_TV_mL": 25,
+    "delta_FiO2": 0.05,
+    "description": "PEEP -1 cmH2O, TV +25 mL, FiO2 +0.05",
+    "valid": false
+  },
+  "44": {
+    "delta_PEEP_cmH2O": -1,
+    "delta_TV_mL": 25,
+    "delta_FiO2": 0.1,
+    "description": "PEEP -1 cmH2O, TV +25 mL, FiO2 +0.10",
+    "valid": true
+  },
+  "45": {
+    "delta_PEEP_cmH2O": -1,
+    "delta_TV_mL": 50,
+    "delta_FiO2": -0.1,
+    "description": "PEEP -1 cmH2O, TV +50 mL, FiO2 -0.10",
+    "valid": true
+  },
+  "46": {
+    "delta_PEEP_cmH2O": -1,
+    "delta_TV_mL": 50,
+    "delta_FiO2": -0.05,
+    "description": "PEEP -1 cmH2O, TV +50 mL, FiO2 -0.05",
+    "valid": true
+  },
+  "47": {
+    "delta_PEEP_cmH2O": -1,
+    "delta_TV_mL": 50,
+    "delta_FiO2": 0.0,
+    "description": "PEEP -1 cmH2O, TV +50 mL, FiO2 unchanged",
+    "valid": true
+  },
+  "48": {
+    "delta_PEEP_cmH2O": -1,
+    "delta_TV_mL": 50,
+    "delta_FiO2": 0.05,
+    "description": "PEEP -1 cmH2O, TV +50 mL, FiO2 +0.05",
+    "valid": false
+  },
+  "49": {
+    "delta_PEEP_cmH2O": -1,
+    "delta_TV_mL": 50,
+    "delta_FiO2": 0.1,
+    "description": "PEEP -1 cmH2O, TV +50 mL, FiO2 +0.10",
+    "valid": true
+  },
+  "50": {
+    "delta_PEEP_cmH2O": 0,
+    "delta_TV_mL": -50,
+    "delta_FiO2": -0.1,
+    "description": "PEEP unchanged, TV -50 mL, FiO2 -0.10",
+    "valid": true
+  },
+  "51": {
+    "delta_PEEP_cmH2O": 0,
+    "delta_TV_mL": -50,
+    "delta_FiO2": -0.05,
+    "description": "PEEP unchanged, TV -50 mL, FiO2 -0.05",
+    "valid": true
+  },
+  "52": {
+    "delta_PEEP_cmH2O": 0,
+    "delta_TV_mL": -50,
+    "delta_FiO2": 0.0,
+    "description": "PEEP unchanged, TV -50 mL, FiO2 unchanged",
+    "valid": true
+  },
+  "53": {
+    "delta_PEEP_cmH2O": 0,
+    "delta_TV_mL": -50,
+    "delta_FiO2": 0.05,
+    "description": "PEEP unchanged, TV -50 mL, FiO2 +0.05",
+    "valid": true
+  },
+  "54": {
+    "delta_PEEP_cmH2O": 0,
+    "delta_TV_mL": -50,
+    "delta_FiO2": 0.1,
+    "description": "PEEP unchanged, TV -50 mL, FiO2 +0.10",
+    "valid": true
+  },
+  "55": {
+    "delta_PEEP_cmH2O": 0,
+    "delta_TV_mL": -25,
+    "delta_FiO2": -0.1,
+    "description": "PEEP unchanged, TV -25 mL, FiO2 -0.10",
+    "valid": true
+  },
+  "56": {
+    "delta_PEEP_cmH2O": 0,
+    "delta_TV_mL": -25,
+    "delta_FiO2": -0.05,
+    "description": "PEEP unchanged, TV -25 mL, FiO2 -0.05",
+    "valid": true
+  },
+  "57": {
+    "delta_PEEP_cmH2O": 0,
+    "delta_TV_mL": -25,
+    "delta_FiO2": 0.0,
+    "description": "PEEP unchanged, TV -25 mL, FiO2 unchanged",
+    "valid": true
+  },
+  "58": {
+    "delta_PEEP_cmH2O": 0,
+    "delta_TV_mL": -25,
+    "delta_FiO2": 0.05,
+    "description": "PEEP unchanged, TV -25 mL, FiO2 +0.05",
+    "valid": true
+  },
+  "59": {
+    "delta_PEEP_cmH2O": 0,
+    "delta_TV_mL": -25,
+    "delta_FiO2": 0.1,
+    "description": "PEEP unchanged, TV -25 mL, FiO2 +0.10",
+    "valid": true
+  },
+  "60": {
+    "delta_PEEP_cmH2O": 0,
+    "delta_TV_mL": 0,
+    "delta_FiO2": -0.1,
+    "description": "PEEP unchanged, TV unchanged, FiO2 -0.10",
+    "valid": true
+  },
+  "61": {
+    "delta_PEEP_cmH2O": 0,
+    "delta_TV_mL": 0,
+    "delta_FiO2": -0.05,
+    "description": "PEEP unchanged, TV unchanged, FiO2 -0.05",
+    "valid": true
+  },
+  "62": {
+    "delta_PEEP_cmH2O": 0,
+    "delta_TV_mL": 0,
+    "delta_FiO2": 0.0,
+    "description": "PEEP unchanged, TV unchanged, FiO2 unchanged",
+    "valid": true
+  },
+  "63": {
+    "delta_PEEP_cmH2O": 0,
+    "delta_TV_mL": 0,
+    "delta_FiO2": 0.05,
+    "description": "PEEP unchanged, TV unchanged, FiO2 +0.05",
+    "valid": true
+  },
+  "64": {
+    "delta_PEEP_cmH2O": 0,
+    "delta_TV_mL": 0,
+    "delta_FiO2": 0.1,
+    "description": "PEEP unchanged, TV unchanged, FiO2 +0.10",
+    "valid": true
+  },
+  "65": {
+    "delta_PEEP_cmH2O": 0,
+    "delta_TV_mL": 25,
+    "delta_FiO2": -0.1,
+    "description": "PEEP unchanged, TV +25 mL, FiO2 -0.10",
+    "valid": true
+  },
+  "66": {
+    "delta_PEEP_cmH2O": 0,
+    "delta_TV_mL": 25,
+    "delta_FiO2": -0.05,
+    "description": "PEEP unchanged, TV +25 mL, FiO2 -0.05",
+    "valid": true
+  },
+  "67": {
+    "delta_PEEP_cmH2O": 0,
+    "delta_TV_mL": 25,
+    "delta_FiO2": 0.0,
+    "description": "PEEP unchanged, TV +25 mL, FiO2 unchanged",
+    "valid": true
+  },
+  "68": {
+    "delta_PEEP_cmH2O": 0,
+    "delta_TV_mL": 25,
+    "delta_FiO2": 0.05,
+    "description": "PEEP unchanged, TV +25 mL, FiO2 +0.05",
+    "valid": true
+  },
+  "69": {
+    "delta_PEEP_cmH2O": 0,
+    "delta_TV_mL": 25,
+    "delta_FiO2": 0.1,
+    "description": "PEEP unchanged, TV +25 mL, FiO2 +0.10",
+    "valid": true
+  },
+  "70": {
+    "delta_PEEP_cmH2O": 0,
+    "delta_TV_mL": 50,
+    "delta_FiO2": -0.1,
+    "description": "PEEP unchanged, TV +50 mL, FiO2 -0.10",
+    "valid": true
+  },
+  "71": {
+    "delta_PEEP_cmH2O": 0,
+    "delta_TV_mL": 50,
+    "delta_FiO2": -0.05,
+    "description": "PEEP unchanged, TV +50 mL, FiO2 -0.05",
+    "valid": true
+  },
+  "72": {
+    "delta_PEEP_cmH2O": 0,
+    "delta_TV_mL": 50,
+    "delta_FiO2": 0.0,
+    "description": "PEEP unchanged, TV +50 mL, FiO2 unchanged",
+    "valid": true
+  },
+  "73": {
+    "delta_PEEP_cmH2O": 0,
+    "delta_TV_mL": 50,
+    "delta_FiO2": 0.05,
+    "description": "PEEP unchanged, TV +50 mL, FiO2 +0.05",
+    "valid": true
+  },
+  "74": {
+    "delta_PEEP_cmH2O": 0,
+    "delta_TV_mL": 50,
+    "delta_FiO2": 0.1,
+    "description": "PEEP unchanged, TV +50 mL, FiO2 +0.10",
+    "valid": true
+  },
+  "75": {
+    "delta_PEEP_cmH2O": 1,
+    "delta_TV_mL": -50,
+    "delta_FiO2": -0.1,
+    "description": "PEEP +1 cmH2O, TV -50 mL, FiO2 -0.10",
+    "valid": true
+  },
+  "76": {
+    "delta_PEEP_cmH2O": 1,
+    "delta_TV_mL": -50,
+    "delta_FiO2": -0.05,
+    "description": "PEEP +1 cmH2O, TV -50 mL, FiO2 -0.05",
+    "valid": false
+  },
+  "77": {
+    "delta_PEEP_cmH2O": 1,
+    "delta_TV_mL": -50,
+    "delta_FiO2": 0.0,
+    "description": "PEEP +1 cmH2O, TV -50 mL, FiO2 unchanged",
+    "valid": true
+  },
+  "78": {
+    "delta_PEEP_cmH2O": 1,
+    "delta_TV_mL": -50,
+    "delta_FiO2": 0.05,
+    "description": "PEEP +1 cmH2O, TV -50 mL, FiO2 +0.05",
+    "valid": false
+  },
+  "79": {
+    "delta_PEEP_cmH2O": 1,
+    "delta_TV_mL": -50,
+    "delta_FiO2": 0.1,
+    "description": "PEEP +1 cmH2O, TV -50 mL, FiO2 +0.10",
+    "valid": true
+  },
+  "80": {
+    "delta_PEEP_cmH2O": 1,
+    "delta_TV_mL": -25,
+    "delta_FiO2": -0.1,
+    "description": "PEEP +1 cmH2O, TV -25 mL, FiO2 -0.10",
+    "valid": true
+  },
+  "81": {
+    "delta_PEEP_cmH2O": 1,
+    "delta_TV_mL": -25,
+    "delta_FiO2": -0.05,
+    "description": "PEEP +1 cmH2O, TV -25 mL, FiO2 -0.05",
+    "valid": false
+  },
+  "82": {
+    "delta_PEEP_cmH2O": 1,
+    "delta_TV_mL": -25,
+    "delta_FiO2": 0.0,
+    "description": "PEEP +1 cmH2O, TV -25 mL, FiO2 unchanged",
+    "valid": true
+  },
+  "83": {
+    "delta_PEEP_cmH2O": 1,
+    "delta_TV_mL": -25,
+    "delta_FiO2": 0.05,
+    "description": "PEEP +1 cmH2O, TV -25 mL, FiO2 +0.05",
+    "valid": false
+  },
+  "84": {
+    "delta_PEEP_cmH2O": 1,
+    "delta_TV_mL": -25,
+    "delta_FiO2": 0.1,
+    "description": "PEEP +1 cmH2O, TV -25 mL, FiO2 +0.10",
+    "valid": true
+  },
+  "85": {
+    "delta_PEEP_cmH2O": 1,
+    "delta_TV_mL": 0,
+    "delta_FiO2": -0.1,
+    "description": "PEEP +1 cmH2O, TV unchanged, FiO2 -0.10",
+    "valid": true
+  },
+  "86": {
+    "delta_PEEP_cmH2O": 1,
+    "delta_TV_mL": 0,
+    "delta_FiO2": -0.05,
+    "description": "PEEP +1 cmH2O, TV unchanged, FiO2 -0.05",
+    "valid": true
+  },
+  "87": {
+    "delta_PEEP_cmH2O": 1,
+    "delta_TV_mL": 0,
+    "delta_FiO2": 0.0,
+    "description": "PEEP +1 cmH2O, TV unchanged, FiO2 unchanged",
+    "valid": true
+  },
+  "88": {
+    "delta_PEEP_cmH2O": 1,
+    "delta_TV_mL": 0,
+    "delta_FiO2": 0.05,
+    "description": "PEEP +1 cmH2O, TV unchanged, FiO2 +0.05",
+    "valid": true
+  },
+  "89": {
+    "delta_PEEP_cmH2O": 1,
+    "delta_TV_mL": 0,
+    "delta_FiO2": 0.1,
+    "description": "PEEP +1 cmH2O, TV unchanged, FiO2 +0.10",
+    "valid": true
+  },
+  "90": {
+    "delta_PEEP_cmH2O": 1,
+    "delta_TV_mL": 25,
+    "delta_FiO2": -0.1,
+    "description": "PEEP +1 cmH2O, TV +25 mL, FiO2 -0.10",
+    "valid": true
+  },
+  "91": {
+    "delta_PEEP_cmH2O": 1,
+    "delta_TV_mL": 25,
+    "delta_FiO2": -0.05,
+    "description": "PEEP +1 cmH2O, TV +25 mL, FiO2 -0.05",
+    "valid": false
+  },
+  "92": {
+    "delta_PEEP_cmH2O": 1,
+    "delta_TV_mL": 25,
+    "delta_FiO2": 0.0,
+    "description": "PEEP +1 cmH2O, TV +25 mL, FiO2 unchanged",
+    "valid": true
+  },
+  "93": {
+    "delta_PEEP_cmH2O": 1,
+    "delta_TV_mL": 25,
+    "delta_FiO2": 0.05,
+    "description": "PEEP +1 cmH2O, TV +25 mL, FiO2 +0.05",
+    "valid": false
+  },
+  "94": {
+    "delta_PEEP_cmH2O": 1,
+    "delta_TV_mL": 25,
+    "delta_FiO2": 0.1,
+    "description": "PEEP +1 cmH2O, TV +25 mL, FiO2 +0.10",
+    "valid": true
+  },
+  "95": {
+    "delta_PEEP_cmH2O": 1,
+    "delta_TV_mL": 50,
+    "delta_FiO2": -0.1,
+    "description": "PEEP +1 cmH2O, TV +50 mL, FiO2 -0.10",
+    "valid": true
+  },
+  "96": {
+    "delta_PEEP_cmH2O": 1,
+    "delta_TV_mL": 50,
+    "delta_FiO2": -0.05,
+    "description": "PEEP +1 cmH2O, TV +50 mL, FiO2 -0.05",
+    "valid": false
+  },
+  "97": {
+    "delta_PEEP_cmH2O": 1,
+    "delta_TV_mL": 50,
+    "delta_FiO2": 0.0,
+    "description": "PEEP +1 cmH2O, TV +50 mL, FiO2 unchanged",
+    "valid": true
+  },
+  "98": {
+    "delta_PEEP_cmH2O": 1,
+    "delta_TV_mL": 50,
+    "delta_FiO2": 0.05,
+    "description": "PEEP +1 cmH2O, TV +50 mL, FiO2 +0.05",
+    "valid": false
+  },
+  "99": {
+    "delta_PEEP_cmH2O": 1,
+    "delta_TV_mL": 50,
+    "delta_FiO2": 0.1,
+    "description": "PEEP +1 cmH2O, TV +50 mL, FiO2 +0.10",
+    "valid": true
+  },
+  "100": {
+    "delta_PEEP_cmH2O": 2,
+    "delta_TV_mL": -50,
+    "delta_FiO2": -0.1,
+    "description": "PEEP +2 cmH2O, TV -50 mL, FiO2 -0.10",
+    "valid": true
+  },
+  "101": {
+    "delta_PEEP_cmH2O": 2,
+    "delta_TV_mL": -50,
+    "delta_FiO2": -0.05,
+    "description": "PEEP +2 cmH2O, TV -50 mL, FiO2 -0.05",
+    "valid": true
+  },
+  "102": {
+    "delta_PEEP_cmH2O": 2,
+    "delta_TV_mL": -50,
+    "delta_FiO2": 0.0,
+    "description": "PEEP +2 cmH2O, TV -50 mL, FiO2 unchanged",
+    "valid": true
+  },
+  "103": {
+    "delta_PEEP_cmH2O": 2,
+    "delta_TV_mL": -50,
+    "delta_FiO2": 0.05,
+    "description": "PEEP +2 cmH2O, TV -50 mL, FiO2 +0.05",
+    "valid": true
+  },
+  "104": {
+    "delta_PEEP_cmH2O": 2,
+    "delta_TV_mL": -50,
+    "delta_FiO2": 0.1,
+    "description": "PEEP +2 cmH2O, TV -50 mL, FiO2 +0.10",
+    "valid": true
+  },
+  "105": {
+    "delta_PEEP_cmH2O": 2,
+    "delta_TV_mL": -25,
+    "delta_FiO2": -0.1,
+    "description": "PEEP +2 cmH2O, TV -25 mL, FiO2 -0.10",
+    "valid": true
+  },
+  "106": {
+    "delta_PEEP_cmH2O": 2,
+    "delta_TV_mL": -25,
+    "delta_FiO2": -0.05,
+    "description": "PEEP +2 cmH2O, TV -25 mL, FiO2 -0.05",
+    "valid": false
+  },
+  "107": {
+    "delta_PEEP_cmH2O": 2,
+    "delta_TV_mL": -25,
+    "delta_FiO2": 0.0,
+    "description": "PEEP +2 cmH2O, TV -25 mL, FiO2 unchanged",
+    "valid": true
+  },
+  "108": {
+    "delta_PEEP_cmH2O": 2,
+    "delta_TV_mL": -25,
+    "delta_FiO2": 0.05,
+    "description": "PEEP +2 cmH2O, TV -25 mL, FiO2 +0.05",
+    "valid": false
+  },
+  "109": {
+    "delta_PEEP_cmH2O": 2,
+    "delta_TV_mL": -25,
+    "delta_FiO2": 0.1,
+    "description": "PEEP +2 cmH2O, TV -25 mL, FiO2 +0.10",
+    "valid": true
+  },
+  "110": {
+    "delta_PEEP_cmH2O": 2,
+    "delta_TV_mL": 0,
+    "delta_FiO2": -0.1,
+    "description": "PEEP +2 cmH2O, TV unchanged, FiO2 -0.10",
+    "valid": true
+  },
+  "111": {
+    "delta_PEEP_cmH2O": 2,
+    "delta_TV_mL": 0,
+    "delta_FiO2": -0.05,
+    "description": "PEEP +2 cmH2O, TV unchanged, FiO2 -0.05",
+    "valid": true
+  },
+  "112": {
+    "delta_PEEP_cmH2O": 2,
+    "delta_TV_mL": 0,
+    "delta_FiO2": 0.0,
+    "description": "PEEP +2 cmH2O, TV unchanged, FiO2 unchanged",
+    "valid": true
+  },
+  "113": {
+    "delta_PEEP_cmH2O": 2,
+    "delta_TV_mL": 0,
+    "delta_FiO2": 0.05,
+    "description": "PEEP +2 cmH2O, TV unchanged, FiO2 +0.05",
+    "valid": true
+  },
+  "114": {
+    "delta_PEEP_cmH2O": 2,
+    "delta_TV_mL": 0,
+    "delta_FiO2": 0.1,
+    "description": "PEEP +2 cmH2O, TV unchanged, FiO2 +0.10",
+    "valid": true
+  },
+  "115": {
+    "delta_PEEP_cmH2O": 2,
+    "delta_TV_mL": 25,
+    "delta_FiO2": -0.1,
+    "description": "PEEP +2 cmH2O, TV +25 mL, FiO2 -0.10",
+    "valid": true
+  },
+  "116": {
+    "delta_PEEP_cmH2O": 2,
+    "delta_TV_mL": 25,
+    "delta_FiO2": -0.05,
+    "description": "PEEP +2 cmH2O, TV +25 mL, FiO2 -0.05",
+    "valid": false
+  },
+  "117": {
+    "delta_PEEP_cmH2O": 2,
+    "delta_TV_mL": 25,
+    "delta_FiO2": 0.0,
+    "description": "PEEP +2 cmH2O, TV +25 mL, FiO2 unchanged",
+    "valid": true
+  },
+  "118": {
+    "delta_PEEP_cmH2O": 2,
+    "delta_TV_mL": 25,
+    "delta_FiO2": 0.05,
+    "description": "PEEP +2 cmH2O, TV +25 mL, FiO2 +0.05",
+    "valid": false
+  },
+  "119": {
+    "delta_PEEP_cmH2O": 2,
+    "delta_TV_mL": 25,
+    "delta_FiO2": 0.1,
+    "description": "PEEP +2 cmH2O, TV +25 mL, FiO2 +0.10",
+    "valid": true
+  },
+  "120": {
+    "delta_PEEP_cmH2O": 2,
+    "delta_TV_mL": 50,
+    "delta_FiO2": -0.1,
+    "description": "PEEP +2 cmH2O, TV +50 mL, FiO2 -0.10",
+    "valid": true
+  },
+  "121": {
+    "delta_PEEP_cmH2O": 2,
+    "delta_TV_mL": 50,
+    "delta_FiO2": -0.05,
+    "description": "PEEP +2 cmH2O, TV +50 mL, FiO2 -0.05",
+    "valid": true
+  },
+  "122": {
+    "delta_PEEP_cmH2O": 2,
+    "delta_TV_mL": 50,
+    "delta_FiO2": 0.0,
+    "description": "PEEP +2 cmH2O, TV +50 mL, FiO2 unchanged",
+    "valid": true
+  },
+  "123": {
+    "delta_PEEP_cmH2O": 2,
+    "delta_TV_mL": 50,
+    "delta_FiO2": 0.05,
+    "description": "PEEP +2 cmH2O, TV +50 mL, FiO2 +0.05",
+    "valid": true
+  },
+  "124": {
+    "delta_PEEP_cmH2O": 2,
+    "delta_TV_mL": 50,
+    "delta_FiO2": 0.1,
+    "description": "PEEP +2 cmH2O, TV +50 mL, FiO2 +0.10",
+    "valid": true
+  }
+}

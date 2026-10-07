@@ -19,6 +19,35 @@ backend/logs/*
 *.parquet
 *.pkl
 *.pt
+
+# ---- Serving artifacts: tracked so a deployment can actually start ----
+# A container built from this repo has no models otherwise, and PolicyRouter
+# loads policy_track_a.pt in its constructor — so the API crashes on the first
+# request rather than at build time. This is the minimum set that answers
+# requests, ~11 MB in total. Negations must come after the patterns above, and
+# a negation cannot re-include a file whose PARENT directory is excluded, which
+# is why each `backend/models/...` line is spelled out rather than globbed.
+!backend/models/policy_track_a.pt
+!backend/models/policy_track_b.pt
+!backend/models/normaliser_stats.json
+!backend/models/normaliser_stats_track_b.json
+!backend/models/ood_ae_track_a.pt
+!backend/models/feature_imputer_track_b.pkl
+!backend/models/action_map.json
+
+# 56 KB each: the pre-subsampled states the decision-rule tree is fitted from at
+# startup. The full MDP parquets stay out — 42 MB for track A, and reading it
+# costs enough RSS to OOM a small instance (see backend/api/state.py::_distil).
+!backend/data/processed/mdp_track_a_treesample.parquet
+!backend/data/processed/mdp_track_b_treesample.parquet
+
+# The OPE results /api/validation reads. Small JSON, no patient rows.
+!backend/logs/behaviour_track_a.json
+!backend/logs/fqe_track_a.json
+!backend/logs/dfqe_track_a.json
+!backend/logs/nwe_track_a.json
+!backend/logs/cv_track_a.json
+!backend/logs/ablation_track_b.json
 *.db
 ventassist.db
 frontend/node_modules/
