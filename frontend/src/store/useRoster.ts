@@ -6,7 +6,7 @@ import {
 import type { Patient, PatientCreate } from "../types/patient";
 
 /**
- * The roster lives in MongoDB — `GET /api/patients` is the source of truth for
+ * The roster lives in PostgreSQL — `GET /api/patients` is the source of truth for
  * every bed, the six seeded presets included. Uploading POSTs a patient, deleting
  * a card DELETEs it (taking that patient's saved recommendations with it), and both
  * update the local copy from the server's response so the grid never drifts from

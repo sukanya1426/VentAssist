@@ -10,7 +10,7 @@ Signup and login both return a token, so registering signs you straight in rathe
 than bouncing you back to a login form you just filled in.
 
 The password itself is never stored, logged or returned — only its hash reaches
-Mongo (see :mod:`backend.api.auth`). A wrong username and a wrong password give
+the database (see :mod:`backend.api.auth`). A wrong username and a wrong password give
 the *same* 401 message on purpose: distinguishing them would let anyone probe the
 endpoint for which clinicians have accounts.
 """
@@ -22,8 +22,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+import asyncpg
 from fastapi import APIRouter, Depends, HTTPException
-from pymongo.errors import DuplicateKeyError, PyMongoError
 
 from backend.api import auth as A
 from backend.api import db
@@ -40,7 +40,7 @@ BAD_CREDENTIALS = HTTPException(
 
 
 def _guard(e: Exception) -> HTTPException:
-    """Accounts live in Mongo, so no database means no sign-in — say which it is."""
+    """Accounts live in the database, so no database means no sign-in — say so."""
     return HTTPException(
         status_code=503,
         detail=f"Account database unavailable — cannot sign in right now: {e}",
@@ -53,89 +53,91 @@ def _iso(v: Any) -> Optional[str]:
     return v if isinstance(v, str) else None
 
 
-def _to_user(doc: dict) -> M.AuthUser:
+def _to_user(row) -> M.AuthUser:
     return M.AuthUser(
-        id=str(doc["_id"]),
-        username=doc["username"],
-        full_name=doc.get("full_name"),
-        role=doc.get("role"),
-        created_at=_iso(doc.get("created_at")),
-        last_login_at=_iso(doc.get("last_login_at")),
+        id=row["user_id"],
+        username=row["username"],
+        full_name=row["full_name"],
+        role=row["role"],
+        created_at=_iso(row["created_at"]),
+        last_login_at=_iso(row["last_login_at"]),
     )
 
 
-def _session(doc: dict) -> M.AuthResponse:
-    token = A.create_token(str(doc["_id"]), doc["username"])
-    return M.AuthResponse(token=token, expires_at=A.token_expiry(token), user=_to_user(doc))
+def _session(row) -> M.AuthResponse:
+    token = A.create_token(row["user_id"], row["username"])
+    return M.AuthResponse(token=token, expires_at=A.token_expiry(token), user=_to_user(row))
 
 
 @router.post("/signup", response_model=M.AuthResponse, status_code=201)
 async def signup(body: M.SignupRequest) -> M.AuthResponse:
     """Register a clinician and sign them in.
 
-    The uniqueness of the username is enforced by the index, not by the pre-check:
-    the ``find_one`` below only exists to turn the common case into a clear message,
-    while ``DuplicateKeyError`` covers two signups racing for the same name.
+    Uniqueness is enforced by the UNIQUE constraint on ``username``, not by a
+    pre-check: a SELECT-then-INSERT would let two signups racing for the same name
+    both pass the check. The INSERT is the authority, and
+    ``UniqueViolationError`` is the one case it rejects.
     """
     username = A.normalise_username(body.username)
     now = datetime.now(timezone.utc)
-    doc = {
-        "_id": f"user-{uuid.uuid4().hex[:12]}",
-        "username": username,
-        "full_name": (body.full_name or "").strip() or None,
-        "role": (body.role or "").strip() or None,
-        "password_hash": A.hash_password(body.password),
-        "created_at": now,
-        "last_login_at": now,
-    }
+    user_id = f"user-{uuid.uuid4().hex[:12]}"
 
     try:
-        if await db.users().find_one({"username": username}) is not None:
-            raise HTTPException(status_code=409,
-                                detail=f"The username {username!r} is already taken.")
-        await db.users().insert_one(doc)
-    except DuplicateKeyError:
+        row = await db.fetchrow(
+            """
+            INSERT INTO clinician (user_id, username, password_hash, full_name,
+                                   role, created_at, last_login_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $6)
+            RETURNING *
+            """,
+            user_id, username, A.hash_password(body.password),
+            (body.full_name or "").strip() or None,
+            (body.role or "").strip() or None, now,
+        )
+    except asyncpg.UniqueViolationError:
         raise HTTPException(status_code=409,
                             detail=f"The username {username!r} is already taken.")
-    except (db.DatabaseUnavailable, PyMongoError) as e:
+    except db.DB_ERRORS as e:
         raise _guard(e)
 
     log.info("New clinician account: %s", username)
-    return _session(doc)
+    return _session(row)
 
 
 @router.post("/login", response_model=M.AuthResponse)
 async def login(body: M.LoginRequest) -> M.AuthResponse:
     username = A.normalise_username(body.username)
     try:
-        doc = await db.users().find_one({"username": username})
-    except (db.DatabaseUnavailable, PyMongoError) as e:
+        row = await db.fetchrow(
+            "SELECT * FROM clinician WHERE username = $1", username)
+    except db.DB_ERRORS as e:
         raise _guard(e)
 
-    if doc is None or not A.verify_password(body.password, doc.get("password_hash", "")):
+    if row is None or not A.verify_password(body.password, row["password_hash"] or ""):
         # Same answer either way — see the module docstring.
         raise BAD_CREDENTIALS
 
     now = datetime.now(timezone.utc)
     try:
-        await db.users().update_one({"_id": doc["_id"]}, {"$set": {"last_login_at": now}})
-    except PyMongoError as e:
+        row = await db.fetchrow(
+            "UPDATE clinician SET last_login_at = $2 WHERE user_id = $1 RETURNING *",
+            row["user_id"], now)
+    except db.DB_ERRORS as e:
         # A missing "last seen" stamp is not worth failing a valid sign-in over.
         log.warning("Could not record last_login_at for %s: %s", username, e)
-    doc["last_login_at"] = now
-    return _session(doc)
+    return _session(row)
 
 
 @router.get("/me", response_model=M.AuthUser)
 async def me(user: A.CurrentUser = Depends(A.current_user)) -> M.AuthUser:
     """Who the held token belongs to — the frontend calls this on page load.
 
-    Unlike the other protected routes this *does* read the database, so an account
-    deleted from Mongo cannot keep browsing on a token that has not expired yet.
+    Unlike the other protected routes this *does* read the database, so a deleted
+    account cannot keep browsing on a token that has not expired yet.
     """
     try:
-        doc = await db.users().find_one({"_id": user.id})
-    except (db.DatabaseUnavailable, PyMongoError) as e:
+        doc = await db.fetchrow("SELECT * FROM clinician WHERE user_id = $1", user.id)
+    except db.DB_ERRORS as e:
         raise _guard(e)
     if doc is None:
         raise HTTPException(status_code=401, detail="This account no longer exists.",

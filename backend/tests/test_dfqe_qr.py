@@ -76,7 +76,10 @@ def _fit_or_skip() -> dict:
     if not (config.PROCESSED_PATH / "mdp_track_a.parquet").exists():
         raise Skip("mdp_track_a.parquet not present — build the dataset first.")
     # Small, fast configuration (properties, not precision).
-    return dfqe.distributional_fqe_qr("a", n_quantiles=9, K=3, steps_per_iter=30)
+    # write=False — see test_nwe_safety_metrics; a toy run must not become the
+    # artifact the dashboard shows as the model's validation record.
+    return dfqe.distributional_fqe_qr("a", n_quantiles=9, K=3, steps_per_iter=30,
+                                      write=False)
 
 
 def test_qr_dfqe_properties():

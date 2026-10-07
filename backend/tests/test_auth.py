@@ -124,7 +124,7 @@ def test_health_and_tracks_stay_open():
 
 
 def test_signup_rejects_weak_credentials_before_touching_the_database():
-    """422 (validation) rather than 503 (no Mongo) proves the rules are enforced
+    """422 (validation) rather than 503 (no database) proves the rules are enforced
     in the model, so a short password never reaches the database layer."""
     client = _client_or_skip()
     r = client.post("/api/auth/signup", json={"username": "dr", "password": "short"})

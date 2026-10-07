@@ -8,7 +8,7 @@ Two deliberately small pieces, both on the standard library:
   * **Sessions** are stateless HMAC-signed tokens (``payload.signature``, both
     base64url). The payload carries the user id, the username and an expiry, so a
     protected request is answered without a database round-trip — which matters
-    because the recommendation endpoint is meant to keep working while Mongo is
+    because the recommendation endpoint is meant to keep working while the database is
     unreachable. The cost of statelessness is that a token cannot be revoked
     before it expires; the short lifetime (one shift) is the mitigation.
 

@@ -9,9 +9,27 @@ import type {
 
 const DEFAULT_STATE: TabularState = { ...DEFAULT_PRESET.state };
 
-const DEFAULT_WAVEFORM = {
-  ecgHRV: 31.2, ecgArr: 0.03, pleth: 2.1,
-  rrv: 0.19, breathReg: 0.81, asynchrony: 0.1,
+/**
+ * No waveform data = no waveform numbers. Every field is null until a recording
+ * supplies it.
+ *
+ * This used to hold six plausible-looking constants (HRV 31.2, arrhythmia 0.03,
+ * …) that stood in whenever a patient had no recording — including all six
+ * presets, which have none. They were then POSTed as `ecg_features` /
+ * `pleth_features` / `resp_features`, so the model and the stored clinical
+ * record received fabricated measurements as if they had been taken, coverage
+ * always read 1.0, and `imputation_used` always read false. The backend has a
+ * trained imputer for exactly this case (backend/router/feature_imputer.py) and
+ * it could never run, because the client never admitted anything was missing.
+ *
+ * Nulls are omitted from the request instead, so the router sees real coverage
+ * and imputes the rest. The recommendation is unchanged either way — the
+ * deployed model's waveform influence is 0.0 — so this costs nothing and stops
+ * the UI from showing invented numbers in a clinical tool.
+ */
+const NO_WAVEFORM = {
+  ecgHRV: null, ecgArr: null, pleth: null,
+  rrv: null, breathReg: null, asynchrony: null,
 };
 
 /** The non-state inputs that also determine a recommendation. */
@@ -31,8 +49,9 @@ interface AppState {
   waveformAvailable: boolean;
   responsiveness: number;
   ventilationMode: string;   // "unknown" | "volume_control" | "pressure_control"
-  ecgHRV: number; ecgArr: number; pleth: number;
-  rrv: number; breathReg: number; asynchrony: number;
+  // null = not measured for this patient. Sent as absent, never as a number.
+  ecgHRV: number | null; ecgArr: number | null; pleth: number | null;
+  rrv: number | null; breathReg: number | null; asynchrony: number | null;
   result: RecommendationResponse | null;
   resultState: TabularState | null;   // the state `result` was computed from
   // The knobs `result` was computed with. Separate from resultState because they
@@ -42,7 +61,7 @@ interface AppState {
   resultMeta: ResultMeta | null;
   loading: boolean;
   error: string | null;
-  // Bumped whenever a recommendation is saved to MongoDB, so the history panel
+  // Bumped whenever a recommendation is saved, so the history panel
   // knows to refetch without the two stores having to know about each other.
   savedCount: number;
   setField: (k: keyof TabularState, v: number) => void;
@@ -62,10 +81,10 @@ export const useStore = create<AppState>((set, get) => {
     tabular: { ...DEFAULT_STATE },
     edited: false,
     selectedTrack: "track_a",
-    waveformAvailable: true,
+    waveformAvailable: false,   // until a patient with a recording is loaded
     responsiveness: 0,
     ventilationMode: "unknown",
-    ...DEFAULT_WAVEFORM,
+    ...NO_WAVEFORM,
     result: null,
     resultState: null,
     resultMeta: null,
@@ -79,18 +98,24 @@ export const useStore = create<AppState>((set, get) => {
     loadPatient: (p) => {
       current = p;
       const w = p.waveform;
-      // Uploads carry their own waveform values; presets fall back to the demo set.
+      // Only what the patient actually carries. A feature the recording did not
+      // yield stays null rather than borrowing a number from somewhere else, so a
+      // partial extraction stays visibly partial.
       const waveform = w ? {
-        ecgHRV: w.HRV_SDNN ?? DEFAULT_WAVEFORM.ecgHRV,
-        ecgArr: w.Arrhythmia_rate ?? DEFAULT_WAVEFORM.ecgArr,
-        pleth: w.Perfusion_Index ?? DEFAULT_WAVEFORM.pleth,
-        rrv: w.RRV ?? DEFAULT_WAVEFORM.rrv,
-        breathReg: w.Breathing_Regularity ?? DEFAULT_WAVEFORM.breathReg,
-        asynchrony: w.Asynchrony_Score ?? DEFAULT_WAVEFORM.asynchrony,
-      } : DEFAULT_WAVEFORM;
-      // A preset patient has no recorded waveform, but the demo values let the
-      // clinician explore Track B; an upload only offers it if the file had one.
-      const waveformAvailable = p.source === "preset" || !!w;
+        ecgHRV: w.HRV_SDNN ?? null,
+        ecgArr: w.Arrhythmia_rate ?? null,
+        pleth: w.Perfusion_Index ?? null,
+        rrv: w.RRV ?? null,
+        breathReg: w.Breathing_Regularity ?? null,
+        asynchrony: w.Asynchrony_Score ?? null,
+      } : NO_WAVEFORM;
+      // Track B is offered only to a patient that actually has a recording.
+      // Presets used to be included here so they could "explore" Track B, but
+      // none of the six has a waveform, so the only thing that reached the model
+      // was the fabricated constant set — which is not an exploration of Track B,
+      // it is Track A plus six invented measurements. The override on the patient
+      // page is still there for typing in features by hand.
+      const waveformAvailable = !!w;
       set({
         patientId: p.id,
         patientName: p.name,
@@ -132,6 +157,13 @@ export const useStore = create<AppState>((set, get) => {
           ventilation_mode: s.ventilationMode === "unknown" ? null : s.ventilationMode,
         };
         if (s.selectedTrack === "track_b") {
+          // Send what was measured and nothing else. A null goes over the wire as
+          // null, which the router counts as missing — so `waveform_coverage` is
+          // the true fraction and the server-side imputer fills the gaps. Writing
+          // a stand-in number here instead would report full coverage for data
+          // nobody recorded. The three groups are always present even when every
+          // value is null, because the API requires at least one group on
+          // track_b; it reads their contents, not their presence.
           req.ecg_features = { HRV_SDNN: s.ecgHRV, Arrhythmia_rate: s.ecgArr };
           req.pleth_features = { Perfusion_Index: s.pleth };
           req.resp_features = {

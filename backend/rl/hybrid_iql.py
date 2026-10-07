@@ -198,6 +198,68 @@ class HybridIQL:
             out[i:i + chunk] = self.Q(self._phi(s)).argmax(dim=-1).cpu().numpy()
         return out
 
+    # --- transfer ---
+    def warm_start_from(self, ckpt: dict) -> dict:
+        """Initialise this model from a LOWER-dimensional policy's checkpoint.
+
+        Why this exists: V/Q/π all operate on the ``latent_dim`` output of
+        ``FeatureAdapter``, so a 12-dim policy and an 18-dim policy have
+        *identical* V/Q/π shapes — only the adapter differs. That makes the 18-dim
+        waveform policy a strict extension of the 12-dim clinical one rather than
+        a separate model that happens to share an architecture.
+
+        Training the 18-dim policy from scratch cannot work at the waveform
+        cohort's size: ~600 transitions against 125 actions and an 18-dim state
+        diverges immediately (validation Q-loss minimised at the first checkpoint,
+        then rising). Here V/Q/π are copied from the source policy — which was fit
+        on the full ~694k-transition cohort — and the adapter is initialised to
+
+            W = [I_latent | 0],   b = 0
+
+        so ``forward(s) == s[:latent_dim]`` exactly. The 18-dim model therefore
+        *starts numerically identical to the source policy* and fine-tuning only
+        has to learn how much the extra dimensions should perturb the latent. The
+        waveform columns begin with zero influence and have to earn it.
+
+        It also makes the 12-vs-18 ablation a NESTED comparison: both arms share a
+        Q-function fitted on the same data, so ΔV̂ reflects the extra state
+        dimensions rather than a difference in training-set size.
+
+        Returns provenance to record in the trained checkpoint.
+        """
+        sd = ckpt["state_dict"]
+        src_dim = int(ckpt["state_dim"])
+        if self.adapter.identity:
+            raise ValueError(
+                "warm_start_from needs a projecting adapter (state_dim > latent_dim); "
+                f"this model is {src_dim}-dim identity, so there is nothing to extend.")
+        proj = self.adapter.proj
+        latent, in_dim = proj.weight.shape
+        if src_dim != latent:
+            raise ValueError(
+                f"source policy is {src_dim}-dim but this model's latent is {latent}-dim; "
+                "warm-starting requires the source to match the latent width exactly.")
+        if in_dim < src_dim:
+            raise ValueError(f"target state_dim {in_dim} < source state_dim {src_dim}")
+
+        # V/Q/π are latent-space modules → shapes match, load them verbatim.
+        self.V.load_state_dict(sd["V"])
+        self.V_target.load_state_dict(sd["V_target"])
+        self.Q.load_state_dict(sd["Q"])
+        self.pi.load_state_dict(sd["pi"])
+
+        # Adapter = [I | 0] so the model reproduces the source policy exactly on
+        # the shared leading dimensions, with the new dimensions contributing zero.
+        with torch.no_grad():
+            proj.weight.zero_()
+            proj.weight[:, :src_dim] = torch.eye(src_dim, device=proj.weight.device)
+            if proj.bias is not None:
+                proj.bias.zero_()
+
+        return {"init_from_state_dim": src_dim,
+                "init_from_n_transitions": ckpt.get("n_transitions"),
+                "init_from_trained_at": ckpt.get("trained_at")}
+
     # --- persistence ---
     def state_dict(self) -> dict:
         return {"adapter": self.adapter.state_dict(), "V": self.V.state_dict(),

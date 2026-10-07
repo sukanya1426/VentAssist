@@ -1,0 +1,47 @@
+# Hypoxaemic on a low tidal volume
+# Source: MIMIC-IV-WDB subject p17490822, record 85814172, ICU stay 30199016, hour 9.
+# The 12 clinical fields are REAL: chartevents/labevents via the VentAssist pipeline.
+#
+# This file carries NO waveform block. Upload it TOGETHER with waveform-10min.hea
+# and waveform-10min.dat — the dataset's own WFDB format — and the 6 Track B
+# features are extracted from the record by backend/waveform/. That is the point
+# of this folder, so the features must come from the signal, not from numbers
+# typed here. Do NOT rename the .hea/.dat: the header stores its own filenames.
+#
+# Expected recommendation: Increase PEEP by 2 cmH2O - Increase tidal volume by 50 mL - Hold FiO2
+# Expected confidence: 0.550
+# Expected safety flags: none
+#
+# Uploading the record sets Track B, but it will NOT change the recommendation:
+# the trained model assigns the waveform dims zero weight, so Track B reports the
+# same action and the same confidence as Track A and labels itself
+# 'waveform recorded, not yet influencing'.
+
+name: Patient B3
+age: 48
+sex: F
+bed: ICU-B3
+summary: Hypoxaemic on a low tidal volume
+
+weight: 86.5
+# PaO2, PaCO2, pH: population median that gp_imputation falls back
+# to when the episode has no arterial blood gas this hour — imputed, not
+# measured. The remaining values are charted measurements.
+
+PEEP: 6.5
+TV: 300
+FiO2: 0.60
+SpO2: 92
+PaO2: 100
+PaCO2: 41
+pH: 7.37
+HR: 108
+SBP: 120
+RR: 18
+RASS: -5
+Temp: 36.9
+
+ventilation_mode: volume_control
+# track is set to track_b automatically when the recording is
+# uploaded alongside this file and its 6 features are extracted.
+track: track_a

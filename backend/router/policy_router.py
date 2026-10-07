@@ -33,6 +33,14 @@ CONF_WEIGHT_CLINICAL = 0.85        # Track A ceiling (clinical data only)
 CONF_WEIGHT_WAVEFORM_FULL = 1.00   # Track B ceiling with full waveform coverage
 CONF_FLOOR, CONF_CEIL = 0.30, 0.97
 
+# Adapter weight magnitude on the waveform columns at which the model is treated
+# as making full use of them. Sized against the [I | 0] warm start, whose shared
+# block is exactly 1.0: a waveform column reaching comparable magnitude is routing
+# as much signal as a clinical one. Below it the coverage confidence bonus is
+# scaled down proportionally, and at exactly 0 Track B claims no more confidence
+# than Track A — which is correct, because it is then computing the same thing.
+WAVEFORM_INFLUENCE_FULL = 1.0
+
 # The "hold" action (no change). The responsiveness knob (§16 item 9) trades
 # hold-vs-act by adding a bonus to every NON-hold action before the argmax.
 HOLD_ACTION = action_space.encode_action(0, 0, 0.0)
@@ -101,6 +109,28 @@ def _apply_responsiveness(q: np.ndarray, responsiveness: float) -> np.ndarray:
     mask = np.arange(len(q)) != HOLD_ACTION
     qe[mask] += float(responsiveness) * RESPONSIVENESS_SCALE
     return qe
+
+
+def _waveform_influence(policy, n_shared: int) -> float:
+    """Largest absolute adapter weight on the NON-shared (waveform) state columns.
+
+    ``FeatureAdapter`` projects the 18-dim state to the 12-dim latent that V/Q/π
+    read, so every path from a waveform feature to a recommendation passes through
+    the trailing columns of that projection. If they are all zero the waveform
+    inputs cannot affect anything, no matter what values arrive — which is exactly
+    the state a ``[I | 0]`` warm start leaves behind when fine-tuning never beat
+    the initialisation.
+
+    Returning the magnitude (rather than a bool) lets the caller scale how much
+    waveform grounding it is willing to claim.
+    """
+    try:
+        W = policy.adapter.proj.weight.detach()
+    except AttributeError:
+        return 0.0                                   # identity adapter → no extra dims
+    if W.shape[1] <= n_shared:
+        return 0.0
+    return float(W[:, n_shared:].abs().max())
 
 
 def _ood_weight(base_weight: float, ood: dict | None) -> float:
@@ -196,10 +226,25 @@ class PolicyRouter:
         self.track_b = None
         self.norm_b = None
         self.imputer = None
+        self.track_b_trusted = False
+        self.waveform_influence = 0.0
         tb = config.MODEL_PATH / "policy_track_b.pt"
         if tb.exists():
+            ckpt = torch.load(tb, map_location="cpu", weights_only=False)
             self.track_b = _load_policy(tb)
             self.norm_b = normaliser.load(config.MODEL_PATH / "normaliser_stats_track_b.json")
+            # Is the 18-dim policy safe to actually serve from? Only if it was
+            # warm-started from the gated Track A policy, which bounds it below by
+            # Track A's behaviour. A from-scratch Track B fit on ~600 transitions
+            # collapses to "hold" for nearly every input, which is why this router
+            # used to bypass it entirely and delegate to Track A.
+            self.track_b_trusted = bool(ckpt.get("init_from"))
+            # How much do the waveform dims actually move the latent state? With a
+            # [I | 0] warm start that fine-tuning never improved on, this is
+            # exactly 0 — the model assigns the waveform features no weight. The
+            # confidence must not claim waveform grounding it does not have, so
+            # this number gates the coverage bonus rather than coverage alone.
+            self.waveform_influence = _waveform_influence(self.track_b, len(TABULAR))
             try:
                 from backend.router.feature_imputer import FeatureImputer
                 self.imputer = FeatureImputer.load()
@@ -243,42 +288,91 @@ class PolicyRouter:
     def run_track_b(self, tabular_state: dict, waveform_vals: dict,
                     responsiveness: float = 0.0,
                     ventilation_mode: str | None = None) -> dict:
-        """Waveform-enhanced track.
+        """Waveform-enhanced track — the 18-dim policy over clinical + waveform state.
 
-        The standalone Track B policy is a proof-of-concept trained on only ~93
-        transitions (62% of which are the "no change" action), so its argmax
-        collapses to "hold" for almost every input. Rather than serve that
-        degenerate recommendation, Track B delegates the *recommendation* to the
-        responsive Track A clinical policy (over the 12 tabular dims). The
-        waveform features still genuinely drive the confidence level, the safety
-        filter (arrhythmia / projected settings) and the track labelling.
+        The recommendation is computed from the **full 18-dim state** by the Track B
+        policy whenever that policy is trustworthy, which here means warm-started
+        from the gated Track A policy (``init_from``) so it is bounded below by
+        Track A's behaviour. A from-scratch Track B fit on ~600 transitions
+        collapses to "hold" for nearly every input, so in that case the
+        recommendation is delegated to Track A instead and ``delegated_to_track_a``
+        says so.
+
+        HONESTY CONSTRAINTS (added 2026-10-02 after end-to-end testing on real
+        extracted waveforms exposed all three of these):
+
+        * The waveform values used to reach NOTHING. The router evaluated
+          ``track_a.q_values`` on the 12-dim state, so even a perfectly trained
+          18-dim policy could not have influenced the output. It now evaluates the
+          18-dim policy on the 18-dim state, so waveform data influences the
+          recommendation exactly as much as the trained model says it should —
+          today that is zero, and the moment a model earns waveform weight it
+          takes effect with no router change.
+        * Confidence was raised by the COUNT of supplied waveform numbers, not by
+          what they said: perturbing any feature across its full observed range
+          left confidence bit-identical, yet supplying all six lifted it 0.696 →
+          0.819 over Track A on the same patient. That is unearned confidence in a
+          CDSS. The coverage bonus is now gated on ``waveform_influence`` — the
+          model must actually route the waveform dims into its latent state before
+          the confidence may claim waveform grounding.
+        * ``imputation_used`` was reported ``True`` whenever coverage < 1 while the
+          loaded ``FeatureImputer`` was never called. Missing features are now
+          genuinely imputed, and the flag reports what happened.
+
+        Waveform data also still drives the safety filter (arrhythmia, checked by
+        the caller) and the track labelling.
         """
         if self.track_b is None:
             raise RuntimeError("Track B model not available.")
-        available = sum(1 for v in waveform_vals.values()
-                        if v is not None and not (isinstance(v, float) and np.isnan(v)))
-        coverage = available / 6
-        imputation_used = coverage < 1.0
+        present = {f: v for f, v in waveform_vals.items()
+                   if v is not None and not (isinstance(v, float) and np.isnan(v))}
+        coverage = len(present) / len(WAVEFORM)
 
-        vec = np.array([float(tabular_state[f]) for f in TABULAR])
+        # Fill the missing waveform features for real, so the 18-dim state is
+        # complete and the flag below is a fact rather than a label.
+        if coverage < 1.0 and self.imputer is not None:
+            filled = self.imputer.impute(tabular_state, waveform_vals)
+            imputation_used = True
+        else:
+            filled = {f: float(present.get(f, 0.0)) for f in WAVEFORM}
+            imputation_used = False
+
+        tab = np.array([float(tabular_state[f]) for f in TABULAR])
         # SERVING transform — z-score + z-space clamp, NOT the training winsor clip,
         # which would collapse every SpO₂ < 89 / PEEP > 18 / TV > 863 onto one vector
         # and make the recommendation unresponsive to the clinician's edits.
-        z = normaliser.transform_inference(vec, self.norm_a, TABULAR)
-        q = self.track_a.q_values(z)                        # raw Q, shape (125,)
+        z12 = normaliser.transform_inference(tab, self.norm_a, TABULAR)
+        if self.track_b_trusted:
+            vec18 = np.concatenate([tab, [float(filled[f]) for f in WAVEFORM]])
+            # norm_b carries Track A's statistics for the shared tabular features
+            # (see dataset._inherit_tabular_norm), so the warm-started Q sees the
+            # z-scale it was fitted on.
+            z = normaliser.transform_inference(vec18, self.norm_b, TABULAR + WAVEFORM)
+            model, feature_order = self.track_b, TABULAR + WAVEFORM
+        else:
+            z, model, feature_order = z12, self.track_a, TABULAR
+        q = model.q_values(z)                               # raw Q, shape (125,)
         action, q_eff, q_conf, masked = _select_action(q, responsiveness, ventilation_mode)
         dp, dt, df = action_space.decode_action(action)
         # Rank on the RAW (allowed-only) Q, not q_eff — see _rank_actions.
         ranking = _rank_actions(q_conf, action)
-        # Waveform coverage raises the information-content ceiling from the
-        # clinical-only cap up to the full-waveform cap; the decision sharpness
-        # (the Q-margin) is the same because Track B delegates to Track A.
+        # Waveform coverage raises the information-content ceiling toward the
+        # full-waveform cap — but only in proportion to how much the model actually
+        # uses those dims. With zero influence this collapses to the clinical cap,
+        # so Track B reads exactly as confident as Track A, which is the truth.
+        informative = min(1.0, self.waveform_influence / WAVEFORM_INFLUENCE_FULL)
         info_weight = (CONF_WEIGHT_CLINICAL
-                       + (CONF_WEIGHT_WAVEFORM_FULL - CONF_WEIGHT_CLINICAL) * coverage)
-        ood = self._ood(z)
+                       + (CONF_WEIGHT_WAVEFORM_FULL - CONF_WEIGHT_CLINICAL)
+                       * coverage * informative)
+        # OOD is a 12-dim Track A detector, so it is always evaluated on z12.
+        ood = self._ood(z12)
         conf = _decision_confidence(q_conf, _ood_weight(info_weight, ood), chosen=action)
-        label = ("Waveform-Enhanced Policy (partial waveform)" if imputation_used
-                 else "Waveform-Enhanced Policy")
+        if informative <= 0.0:
+            label = "Waveform-Enhanced Policy (waveform recorded, not yet influencing)"
+        elif imputation_used:
+            label = "Waveform-Enhanced Policy (partial waveform)"
+        else:
+            label = "Waveform-Enhanced Policy"
         return {"action": action, "delta_PEEP": dp, "delta_TV": dt, "delta_FiO2": df,
                 "track": "track_b", "track_label": label,
                 "confidence": conf["confidence"],
@@ -289,6 +383,13 @@ class PolicyRouter:
                 "in_support": (ood["in_support"] if ood else None),
                 "support_ratio": (round(ood["support_ratio"], 3) if ood else None),
                 "waveform_used": True, "waveform_coverage": coverage,
-                "imputation_used": imputation_used, "decision_tree": "a",
-                "state_norm": z, "feature_order": TABULAR, "model": self.track_a,
+                "imputation_used": imputation_used,
+                # How much the served model lets the waveform dims matter, and
+                # whether the 18-dim policy was used at all. Both are needed to
+                # read the confidence honestly.
+                "waveform_influence": round(float(self.waveform_influence), 6),
+                "waveform_informative": bool(informative > 0.0),
+                "delegated_to_track_a": not self.track_b_trusted,
+                "decision_tree": "a",
+                "state_norm": z, "feature_order": feature_order, "model": model,
                 "ranked": ranking["ranked"], "alternatives": ranking["alternatives"]}

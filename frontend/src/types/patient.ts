@@ -1,6 +1,31 @@
 import type { TabularState, Track } from "./recommendation";
 
 /** The 6 waveform features Track B accepts (all optional). */
+/** Why one channel of an uploaded recording did or did not yield its features. */
+export interface WaveformChannelReport {
+  present: boolean;
+  valid_fraction?: number | null;   // fraction finite before gap-filling
+  quality_ok?: boolean | null;      // passed flatline / motion / disconnect
+  note?: string | null;
+}
+
+/**
+ * What the server made of an uploaded waveform.
+ *
+ * `features` may be partly empty — a recording with a disconnected Resp belt
+ * still gives usable ECG and Pleth features — so `coverage` is the fraction of
+ * the 6 that came out and `warnings` explains the gaps in words.
+ */
+export interface WaveformExtraction {
+  features: WaveformFeatures;
+  fs: number;
+  n_samples: number;
+  duration_s: number;
+  coverage: number;
+  channels: Record<string, WaveformChannelReport>;
+  warnings: string[];
+}
+
 export interface WaveformFeatures {
   HRV_SDNN?: number;
   Arrhythmia_rate?: number;
@@ -11,7 +36,7 @@ export interface WaveformFeatures {
 }
 
 /**
- * A patient on the roster, as stored in MongoDB and returned by `GET /api/patients`.
+ * A patient on the roster, as stored in PostgreSQL and returned by `GET /api/patients`.
  * Field names match the API exactly (snake_case for the two multi-word fields) so
  * a patient can be round-tripped without a translation layer.
  */

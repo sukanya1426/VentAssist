@@ -1,12 +1,12 @@
-"""The six built-in roster patients, seeded into MongoDB on startup.
+"""The six built-in roster patients, seeded into PostgreSQL on startup.
 
-These mirror ``frontend/src/data/patientPresets.ts`` + ``patients.ts``: each state
-exercises a different part of the policy so the recommendation differs meaningfully
-between beds. Moving them here makes Mongo the single source of truth for the
-roster — the frontend now reads all six from ``GET /api/patients`` rather than
-holding its own copy.
+These mirror ``frontend/src/data/patientPresets.ts``: each state exercises a
+different part of the policy so the recommendation differs meaningfully between
+beds. Keeping them here makes the database the single source of truth for the
+roster — the frontend reads all six from ``GET /api/patients`` rather than holding
+its own copy.
 
-Seeding only bootstraps an **empty** roster. Once the collection holds anything at
+Seeding only bootstraps an **empty** roster. Once ``patient`` holds anything at
 all it is left alone, so a deleted preset stays deleted and an edited one is not
 clobbered — a delete needs no tombstone or other bookkeeping to survive a restart.
 The one consequence: emptying the roster completely and restarting brings the six
@@ -16,7 +16,6 @@ back, which is the sane reading of "no patients on file" for a fresh deployment.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
 
 from backend.api import db
 
@@ -57,41 +56,52 @@ _PRESETS = [
 ]
 
 
-def preset_documents() -> list[dict]:
-    now = datetime.now(timezone.utc)
-    docs = []
+# Column order for an INSERT INTO patient — the 12 clinical fields are flat
+# columns, so the composite State is spelled out once here rather than at each
+# call site.
+_STATE_COLUMNS = ["peep", "tv", "fio2", "spo2", "pao2", "paco2",
+                  "ph", "hr", "sbp", "rr", "rass", "temp"]
+# The preset dicts use the API's field names; the table uses lower-case columns.
+_STATE_KEYS = ["PEEP", "TV", "FiO2", "SpO2", "PaO2", "PaCO2",
+               "pH", "HR", "SBP", "RR", "RASS", "Temp"]
+
+
+def preset_rows() -> list[tuple]:
+    """The presets as ``patient`` rows, in INSERT column order."""
+    rows = []
     for order, (letter, weight, age, sex, bed, summary, hint, state) in enumerate(_PRESETS):
-        docs.append({
-            "_id": f"patient-{letter.lower()}",
-            "name": f"Patient {letter}",
-            "weight": weight,
-            "age": age,
-            "sex": sex,
-            "bed": bed,
-            "summary": summary,
-            "hint": hint,
-            "state": dict(state),
-            "source": "preset",
-            "waveform": None,
-            "ventilation_mode": None,
-            "track": "track_a",
-            "order": order,
-            "created_at": now,
-            "updated_at": now,
-        })
-    return docs
+        rows.append((
+            f"patient-{letter.lower()}",      # patient_id
+            f"Patient {letter}",              # name
+            bed, summary, hint,
+            age, sex, float(weight),
+            *[float(state[k]) for k in _STATE_KEYS],
+            "track_a",                        # track
+            "preset",                         # source
+            order,                            # display_order
+        ))
+    return rows
 
 
 async def seed_presets() -> int:
     """Populate the roster on a fresh database. Returns how many patients were added.
 
     A non-empty roster is never touched — whatever is on it is what the clinician
-    left there.
+    left there. ``LIMIT 1`` because the question is "is it empty", not "how many".
     """
-    coll = db.patients()
-    if await coll.count_documents({}, limit=1):
+    if await db.fetchval("SELECT 1 FROM patient LIMIT 1"):
         return 0
-    docs = preset_documents()
-    await coll.insert_many(docs)
-    log.info("Seeded %d preset patient(s) into an empty MongoDB roster", len(docs))
-    return len(docs)
+    rows = preset_rows()
+    cols = (["patient_id", "name", "bed", "summary", "hint",
+             "age", "sex", "weight_kg"] + _STATE_COLUMNS
+            + ["track", "source", "display_order"])
+    placeholders = ", ".join(f"${i + 1}" for i in range(len(cols)))
+    sql = (f"INSERT INTO patient ({', '.join(cols)}) VALUES ({placeholders}) "
+           "ON CONFLICT (patient_id) DO NOTHING")
+    pool = await db.get_pool()
+    async with pool.acquire() as con:
+        # One transaction: a half-seeded roster is worse than an empty one.
+        async with con.transaction():
+            await con.executemany(sql, rows)
+    log.info("Seeded %d preset patient(s) into an empty roster", len(rows))
+    return len(rows)

@@ -148,7 +148,7 @@ def _policy_coverage(d: dict, S: np.ndarray, policy, n: int = 2000,
 def distributional_fqe_qr(track: str = "a", n_quantiles: int = 21, K: int = 25,
                           gamma: float = 0.99, alpha: float = 0.05,
                           batch_size: int = 4096, steps_per_iter: int = 120,
-                          seed: int = 0) -> dict:
+                          seed: int = 0, write: bool = True) -> dict:
     torch.manual_seed(seed)
     d, S, NS, policy, ckpt = _load(track)
     pi_next = policy.act_batch(NS)                            # batched greedy a'
@@ -203,7 +203,9 @@ def distributional_fqe_qr(track: str = "a", n_quantiles: int = 21, K: int = 25,
         "n_test": int(len(starts)), "n_transitions": int(len(d["actions"])),
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
-    (config.LOGS_PATH / f"dfqe_track_{track}.json").write_text(json.dumps(result, indent=2))
+    if write:
+        (config.LOGS_PATH / f"dfqe_track_{track}.json").write_text(
+            json.dumps(result, indent=2))
     log.info("QR-DFQE Track %s: V̂=%.3f LCB(%.0f%%)=%.3f var=%.3f d^π=%.3f",
              track.upper(), v_hat, 100 * alpha, lcb,
              result["return_variance"], result["policy_coverage"])
@@ -276,7 +278,9 @@ def distributional_fqe_bootstrap(track: str = "a", K: int = 30, gamma: float = 0
         "n_test": int(len(test)), "n_transitions": int(len(d["actions"])), "B": B,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
-    (config.LOGS_PATH / f"dfqe_track_{track}.json").write_text(json.dumps(result, indent=2))
+    if write:
+        (config.LOGS_PATH / f"dfqe_track_{track}.json").write_text(
+            json.dumps(result, indent=2))
     log.info("DFQE(bootstrap) Track %s: V̂=%.3f CI95=%s LCB=%.3f",
              track.upper(), result["V_hat"], result["CI_95"], result["LCB_alpha"])
     return result

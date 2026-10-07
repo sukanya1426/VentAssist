@@ -64,6 +64,6 @@ export interface RecommendationResponse {
   safety: { all_clear: boolean; flags: SafetyFlag[] };
   explanation: { top_features: SHAPEntry[]; decision_rule: string };
   metadata: { latency_ms: number; timestamp: string };
-  /** Id of the MongoDB history record; null when the result could not be saved. */
+  /** Id of the history row; null when the result could not be saved. */
   record_id?: string | null;
 }

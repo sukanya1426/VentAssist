@@ -75,6 +75,15 @@ class TrackInfo(BaseModel):
     waveform_used: bool
     waveform_coverage: Optional[float] = None
     imputation_used: Optional[bool] = None
+    # How much the served model actually routes the waveform dims into its latent
+    # state, and whether that is non-zero. With a warm start whose fine-tuning
+    # never beat the initialisation this is 0.0 / False: the waveform data was
+    # recorded and shown but did not influence the recommendation, and the UI must
+    # not present it as waveform-grounded. `delegated_to_track_a` is True when the
+    # 18-dim policy was judged untrustworthy and Track A answered instead.
+    waveform_influence: Optional[float] = None
+    waveform_informative: Optional[bool] = None
+    delegated_to_track_a: Optional[bool] = None
     # Mode-aware masking (§16 item 6): the classified mode and whether ΔTV actions
     # were masked out (pressure-control).
     ventilation_mode: Optional[str] = None
@@ -138,11 +147,11 @@ class RecommendationResponse(BaseModel):
     safety: Safety
     explanation: Explanation
     metadata: Metadata
-    # Set when the result was persisted to MongoDB — the id of the history record.
+    # Set when the result was persisted — the id of the history record row.
     record_id: Optional[str] = None
 
 
-# --- /api/patients — the MongoDB-backed roster ---
+# --- /api/patients — the PostgreSQL-backed roster ---
 
 class WaveformFeatures(BaseModel):
     """The 6 Track B features, all optional; present → Track B is selectable."""
@@ -152,6 +161,45 @@ class WaveformFeatures(BaseModel):
     RRV: Optional[float] = Field(None, ge=0, le=10)
     Breathing_Regularity: Optional[float] = Field(None, ge=0, le=1)
     Asynchrony_Score: Optional[float] = Field(None, ge=0, le=1)
+
+
+# --- /api/waveform — raw signal → the 6 Track B features ---
+class WaveformSamples(BaseModel):
+    """Raw per-channel samples. At least one channel must carry signal.
+
+    Every channel is optional and independent: Pleth alone yields Perfusion_Index
+    and leaves the rest absent, which the router reads as partial coverage rather
+    than as an error.
+    """
+    fs: float = Field(62.5, gt=0, le=10000, description="sampling rate in Hz")
+    ECG: Optional[list[float]] = None
+    Pleth: Optional[list[float]] = None
+    Resp: Optional[list[float]] = None
+
+
+class WaveformChannelReport(BaseModel):
+    """Why a channel did or did not yield its features."""
+    present: bool
+    valid_fraction: Optional[float] = None   # fraction finite before gap-filling
+    quality_ok: Optional[bool] = None        # passed flatline/motion/disconnect
+    note: Optional[str] = None
+
+
+class WaveformExtraction(BaseModel):
+    """What the extractor made of an uploaded recording.
+
+    ``features`` may be partly empty — a recording whose Resp belt was
+    disconnected still gives usable ECG and Pleth features. ``coverage`` is the
+    fraction of the 6 that came out, and ``warnings`` says in words what the
+    quality reports say in numbers, so a clinician can judge whether to proceed.
+    """
+    features: WaveformFeatures
+    fs: float
+    n_samples: int
+    duration_s: float
+    coverage: float = Field(..., ge=0, le=1)
+    channels: dict[str, WaveformChannelReport] = {}
+    warnings: list[str] = []
 
 
 class PatientBase(BaseModel):

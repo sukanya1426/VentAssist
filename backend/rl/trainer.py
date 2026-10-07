@@ -11,6 +11,7 @@ Run:
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 from datetime import datetime, timezone
 
@@ -26,6 +27,22 @@ from backend.rl import behavior_clone, cqi
 from backend.rl.hybrid_iql import Batch, HybridIQL
 
 log = get_logger("rl_trainer")
+
+
+def _snapshot(model: HybridIQL) -> dict:
+    """A real copy of the weights, for best-checkpoint restoration.
+
+    ``HybridIQL.state_dict()`` returns the live parameter tensors by reference (as
+    ``nn.Module.state_dict()`` does). Holding that as "the best checkpoint" is a
+    silent no-op: the optimiser mutates those same tensors in place, so by the end
+    of training the "best" dict holds the FINAL weights and the closing
+    ``load_state_dict(best_sd)`` restores nothing. Early stopping then reports a
+    best validation score it did not actually keep, and a run whose validation loss
+    diverges ships the diverged model.
+
+    Deep-copying at each improvement is what makes early stopping real.
+    """
+    return copy.deepcopy(model.state_dict())
 
 
 def _to_batch(d: dict, idx: np.ndarray, device: str) -> Batch:
@@ -68,8 +85,12 @@ def _normalise(d: dict, track: str) -> dict:
 
 def _run_training(d: dict, train_idx: np.ndarray, val_idx: np.ndarray,
                   cfg: dict, steps: int | None, device: str,
-                  tag: str = "") -> tuple[HybridIQL, float]:
-    """Core HybridIQL training loop with early stopping. Returns (model, best_val_q)."""
+                  tag: str = "") -> tuple[HybridIQL, float, dict]:
+    """Core HybridIQL training loop with early stopping.
+
+    Returns (model, best_val_q, provenance), where provenance is empty unless the
+    config asked for a warm start.
+    """
     total_steps = steps if steps is not None else cfg["total_steps"]
     ckpt_every = min(cfg["checkpoint_every"], max(500, total_steps // 10))
     if len(train_idx) == 0:
@@ -92,7 +113,40 @@ def _run_training(d: dict, train_idx: np.ndarray, val_idx: np.ndarray,
                       tau=cfg["tau"], beta=cfg["beta"], lr=cfg["lr"],
                       cql_alpha=cfg.get("cql", {}).get("alpha", 0.0), device=device)
 
-    best_val, best_sd, stale = float("inf"), model.state_dict(), 0
+    # Optional warm start from a lower-dimensional policy (config `init_from`).
+    # Track A has no `init_from`, so its training path is bit-identical to before.
+    provenance: dict = {}
+    init_from = cfg.get("init_from")
+    if init_from:
+        src = config.MODEL_PATH / str(init_from)
+        if not src.exists():
+            raise FileNotFoundError(
+                f"init_from={init_from} not found at {src}. Train the source policy "
+                "first, or drop `init_from` from the config to train from scratch.")
+        provenance = model.warm_start_from(
+            torch.load(src, map_location=device, weights_only=False))
+        provenance["init_from"] = str(init_from)
+        log.info("%swarm-started from %s (%s-dim, n_train=%s) — adapter = [I | 0], "
+                 "so training starts AT the source policy",
+                 tag, init_from, provenance["init_from_state_dim"],
+                 provenance["init_from_n_transitions"])
+
+    best_val, best_sd, stale = float("inf"), _snapshot(model), 0
+    best_step = 0
+    # Score the INITIALISATION before any gradient step, so "do not fine-tune at
+    # all" is a candidate that early stopping can actually select. For a random
+    # init this is a formality (the score is terrible and the first real checkpoint
+    # beats it); for a warm start it is the whole point — the source policy is a
+    # legitimate answer, and without this a warm start could only ever be made
+    # worse, never left alone. If the validation loss rises monotonically from
+    # here, the honest result is that fine-tuning on this cohort does not help.
+    if init_from and len(val_idx):
+        best_val = _val_q_loss(model, d, val_idx, device)
+        if best_val != best_val:                      # NaN → unusable
+            best_val = float("inf")
+        else:
+            log.info("%sstep 0 (warm-start baseline, no fine-tuning) | val_q=%.4f",
+                     tag, best_val)
     rng = np.random.default_rng(config.SPLIT_SEED)
     last: dict = {}
     for step in range(total_steps):
@@ -105,14 +159,20 @@ def _run_training(d: dict, train_idx: np.ndarray, val_idx: np.ndarray,
                      tag, step + 1, last["v_loss"], last["q_loss"],
                      last["pi_loss"], score)
             if score < best_val:
-                best_val, best_sd, stale = score, model.state_dict(), 0
+                best_val, best_sd, stale = score, _snapshot(model), 0
+                best_step = step + 1
             else:
                 stale += ckpt_every
                 if stale >= cfg["early_stop_patience"]:
                     log.info("%searly stop @ %d", tag, step + 1)
                     break
     model.load_state_dict(best_sd)
-    return model, best_val
+    provenance["selected_step"] = best_step
+    if init_from and best_step == 0:
+        log.warning("%sfine-tuning did NOT improve validation loss — keeping the "
+                    "warm-start initialisation unchanged (selected_step=0). On this "
+                    "cohort the extra state dimensions earn no weight.", tag)
+    return model, best_val, provenance
 
 
 def _eval_on(model: HybridIQL, d: dict, idx: np.ndarray, device: str = "cpu") -> dict:
@@ -167,7 +227,7 @@ def train_kfold(track: str, k: int = 5, steps: int | None = None,
         test_idx = np.where(np.isin(sid, list(test_set)))[0]
         log.info("=== fold %d/%d: %d train / %d val / %d test transitions ===",
                  fi + 1, k, len(train_idx), len(val_idx), len(test_idx))
-        model, best_val = _run_training(d, train_idx, val_idx, cfg, steps, device,
+        model, best_val, _ = _run_training(d, train_idx, val_idx, cfg, steps, device,
                                         tag=f"[f{fi + 1}] ")
         m = _eval_on(model, d, test_idx, device)
         m.update({"fold": fi + 1, "val_q": best_val})
@@ -206,7 +266,8 @@ def train(track: str, steps: int | None = None, device: str = "cpu") -> dict:
     log.info("Track %s: %d train / %d val transitions, state_dim=%d",
              track.upper(), len(train_idx), len(val_idx), d["states"].shape[1])
 
-    model, best_val = _run_training(d, train_idx, val_idx, cfg, steps, device)
+    model, best_val, provenance = _run_training(d, train_idx, val_idx, cfg,
+                                                steps, device)
     out = config.MODEL_PATH / f"policy_track_{track}.pt"
     # Persist the training operating point IN the checkpoint so the deployed
     # artifact is self-describing (no re-deriving lam_causal/alpha from logs).
@@ -219,6 +280,11 @@ def train(track: str, steps: int | None = None, device: str = "cpu") -> dict:
                 "lam_causal": lam_causal, "cql_alpha": cql_alpha,
                 "n_transitions": int(len(train_idx)),
                 "trained_at": datetime.now(timezone.utc).isoformat(),
+                # Warm-start provenance (empty for a from-scratch fit). Downstream
+                # readers need it to know this policy inherited a Q-function fitted
+                # on far more data than `n_transitions` — the 12-vs-18 ablation uses
+                # it to tell a nested comparison from a confounded one.
+                **provenance,
                 "config_snapshot": cfg}, out)
     log.info("Saved HybridIQL → %s (best val_q=%.4f, lam_causal=%.2f, cql_alpha=%.2f, "
              "n_train=%d)", out, best_val, lam_causal, cql_alpha, len(train_idx))

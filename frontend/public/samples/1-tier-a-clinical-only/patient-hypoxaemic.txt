@@ -1,0 +1,37 @@
+# Real mimic4wdb record — hypoxaemia at SpO2 91 on FiO2 0.50
+# Source: MIMIC-IV-WDB subject p17490822, record 85814172, ICU stay 30199016, hour 6.
+# The 12 clinical fields come from chartevents/labevents via the VentAssist
+# pipeline. This is a TIER A file: clinical values only, no waveform block, so it
+# opens on Track A — the full-strength policy trained on 992,100 transitions.
+#
+# SpO2 91 on PEEP 5: the policy should RECRUIT (raise PEEP).
+#
+# For the waveform-enhanced path, use folder 2 or 3 — those ship a recording and
+# the 6 features are extracted from it rather than typed in.
+
+name: Patient W2
+age: 48
+sex: F
+bed: ICU-W2
+summary: Real mimic4wdb record — hypoxaemia at SpO2 91 on FiO2 0.50
+
+weight: 86.5
+# PaO2, PaCO2, pH below is the population median that gp_imputation
+# falls back to when the episode has no arterial blood gas in this hour —
+# imputed, not measured. The other values are charted measurements.
+
+PEEP: 5
+TV: 498
+FiO2: 0.50
+SpO2: 91
+PaO2: 100
+PaCO2: 41
+pH: 7.37
+HR: 102
+SBP: 132
+RR: 13
+RASS: -5
+Temp: 37.2
+
+ventilation_mode: volume_control
+track: track_a

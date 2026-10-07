@@ -81,7 +81,7 @@ export function PatientList() {
         )}
       </div>
 
-      {/* The roster is served from MongoDB — if it can't be read, say so rather
+      {/* The roster is served from PostgreSQL — if it can't be read, say so rather
           than showing an empty ward that looks like every bed was discharged. */}
       {rosterError && (
         <div className="panel mb-4 flex flex-wrap items-center justify-between gap-3 border-rose-200 bg-rose-50/80 p-4 text-sm text-rose-700">

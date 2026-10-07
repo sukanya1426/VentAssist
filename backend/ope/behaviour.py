@@ -82,6 +82,11 @@ def behaviour_value(track: str = "a", gamma: float = 0.99) -> dict:
         "ci95_high": round(hi, 4),
         "n_episodes": int(len(G)),
         "n_test_episodes": int(len(G_test)),
+        # Stamped for the same reason as every other estimator: the validation
+        # view reads these artifacts as the evidence behind a deployed model, and
+        # a value with no record of how much data produced it cannot be read as
+        # evidence. It was the one estimator missing this.
+        "n_transitions": int(len(d["actions"])),
         "gamma": gamma,
         "V_hat_all_splits": round(float(G.mean()), 4),
         "timestamp": datetime.now(timezone.utc).isoformat(),

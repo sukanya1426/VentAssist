@@ -1,0 +1,34 @@
+# Real mimic4wdb record — high tidal volume
+# Source: MIMIC-IV-WDB subject p13364831, record 82697127, ICU stay 32587108, hour 7.
+# The 12 clinical fields come from chartevents/labevents via the VentAssist
+# pipeline. This is a TIER A file: clinical values only, no waveform block, so it
+# opens on Track A — the full-strength policy trained on 992,100 transitions.
+#
+# Tidal volume is high for this patient weight: the policy should CUT TV.
+#
+# For the waveform-enhanced path, use folder 2 or 3 — those ship a recording and
+# the 6 features are extracted from it rather than typed in.
+
+name: Patient W3
+age: 65
+sex: M
+bed: ICU-W3
+summary: Real mimic4wdb record — high tidal volume
+
+weight: 80.1
+
+PEEP: 5
+TV: 789
+FiO2: 0.40
+SpO2: 98
+PaO2: 121.4
+PaCO2: 42
+pH: 7.37
+HR: 87
+SBP: 108
+RR: 11
+RASS: -1
+Temp: 37.0
+
+ventilation_mode: volume_control
+track: track_a

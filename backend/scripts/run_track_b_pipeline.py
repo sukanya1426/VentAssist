@@ -20,7 +20,14 @@ log = get_logger("run_track_b")
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--skip-data", action="store_true")
-    ap.add_argument("--steps", type=int, default=5000)
+    # None → the step budget comes from track_b_config.yaml, so the fine-tuning
+    # schedule lives with the warm-start settings it has to match.
+    ap.add_argument("--steps", type=int, default=None)
+    ap.add_argument("--kfold", type=int, default=5,
+                    help="patient-level k-fold CV before the final fit; 0/1 to skip. "
+                         "With only ~35 waveform stays the canonical split leaves a "
+                         "2-stay validation set, so CV is the honest generalisation "
+                         "estimate rather than a nicety.")
     args = ap.parse_args()
 
     if not args.skip_data:
@@ -46,7 +53,11 @@ def main() -> None:
         log.warning("Track B MDP empty — stopping (proof-of-concept data limit).")
         return
     log.info("=== feature imputer ==="); FeatureImputer.fit_from_files()
-    log.info("=== train (track B) ==="); trainer.train("b", steps=args.steps)
+    if args.kfold and args.kfold > 1:
+        log.info("=== %d-fold CV + train (track B) ===", args.kfold)
+        trainer.train_kfold("b", k=args.kfold, steps=args.steps)
+    else:
+        log.info("=== train (track B) ==="); trainer.train("b", steps=args.steps)
     log.info("Track B pipeline complete (proof-of-concept scale).")
 
 

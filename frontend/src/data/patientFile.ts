@@ -231,12 +231,19 @@ ventilation_mode: volume_control   # volume_control | pressure_control
 track: track_a                     # track_a (clinical) | track_b (needs waveform below)
 
 # ---- optional waveform block (enables Track B) ----
-# HRV_SDNN: 31.2
-# Arrhythmia_rate: 0.03
-# Perfusion_Index: 2.1
-# RRV: 0.19
-# Breathing_Regularity: 0.81
-# Asynchrony_Score: 0.10
+# PREFER UPLOADING THE RECORDING. Drop a waveform .txt export, or a WFDB
+# record folder (.hea + .dat), in the same drop as this file and the 6
+# features below are extracted from the signal by the same code the training
+# features came from. Only fill these in if you have measured values — a
+# feature you leave out is imputed from the clinical values above and
+# reported as imputed, which is honest; a made-up number is not.
+# The figures shown are FORMAT EXAMPLES, not defaults to adopt.
+# HRV_SDNN: 31.2                   # ms
+# Arrhythmia_rate: 0.03            # 0-1
+# Perfusion_Index: 2.1             # 0-30
+# RRV: 0.19                        # 0-10
+# Breathing_Regularity: 0.81       # 0-1
+# Asynchrony_Score: 0.10           # 0-1
 `;
 
 /**

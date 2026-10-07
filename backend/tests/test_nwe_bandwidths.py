@@ -72,7 +72,9 @@ def test_rollout_still_runs_with_cv_bandwidths():
         raise Skip("policy_track_a.pt not present — train first.")
     if not (config.PROCESSED_PATH / "mdp_track_a.parquet").exists():
         raise Skip("mdp_track_a.parquet not present.")
-    r = nwe.rollout_value("a", T=3, n_starts=30)      # fit(cv=True) inside
+    # write=False — a 30-start smoke run must not overwrite the canonical
+    # nwe_track_a.json that the validation view presents as the model's evidence.
+    r = nwe.rollout_value("a", T=3, n_starts=30, write=False)   # fit(cv=True) inside
     assert math.isfinite(r["V_hat"]), "rollout V_hat must be finite with CV bandwidths"
 
 

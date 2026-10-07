@@ -77,7 +77,9 @@ def test_rollout_reports_both_arms_and_finite_v():
         raise Skip("policy_track_a.pt not present — train first.")
     if not (config.PROCESSED_PATH / "mdp_track_a.parquet").exists():
         raise Skip("mdp_track_a.parquet not present.")
-    r = nwe.rollout_value("a", T=4, n_starts=40)   # small & fast
+    # write=False: this is a fast smoke run, and writing would replace the real
+    # evaluation artifact the validation view presents to a clinician.
+    r = nwe.rollout_value("a", T=4, n_starts=40, write=False)   # small & fast
     assert math.isfinite(r["V_hat"]), "rollout V_hat must be finite"
     sm = r["safety_metrics"]
     assert set(sm.keys()) == {"hybrid_iql", "clinician"}

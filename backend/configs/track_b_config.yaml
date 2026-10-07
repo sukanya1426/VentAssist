@@ -1,4 +1,4 @@
-# TIER 2 HybridIQL hyperparameters
+# TIER 2 HybridIQL hyperparameters (18-dim: 12 clinical + 6 waveform)
 state_dim: 18
 action_dim: 125
 hidden_dim: 256
@@ -7,9 +7,29 @@ tau: 0.8
 beta: 2.0
 lr: 3.0e-4
 batch_size: 256
-total_steps: 100000
-checkpoint_every: 10000
-early_stop_patience: 20000
+
+# Warm start from the deployed 12-dim Track A policy (HybridIQL.warm_start_from).
+# V/Q/pi are latent-space modules, so they are copied verbatim and the 18->12
+# adapter is initialised to [I | 0] — this model therefore STARTS numerically
+# identical to Track A, with the 6 waveform dims contributing exactly zero until
+# fine-tuning gives them weight.
+#
+# Why this is required rather than optional: the waveform cohort is ~900
+# transitions over 35 stays. Fitting 125 actions on an 18-dim state from scratch
+# at that size diverges immediately — the validation Q-loss was minimised at the
+# FIRST checkpoint (24.8) and rose monotonically to 95.9 by step 5000, i.e. ~17x
+# Track A's 1.48. It also makes the 12-vs-18 waveform ablation NESTED: both arms
+# share a Q-function fitted on the full ~694k-transition cohort, so delta-V-hat
+# measures the extra state dimensions and not a difference in training-set size.
+init_from: policy_track_a.pt
+
+# Fine-tuning schedule. Short, with validation checked often and a patience that
+# can actually fire: the model starts good, so the risk is over-training away from
+# a healthy initialisation, not under-training. (The old 100000/10000/20000 values
+# meant early stopping could never trigger — patience exceeded the step budget.)
+total_steps: 8000
+checkpoint_every: 250
+early_stop_patience: 1000
 
 reward:
   C1: 1.0
@@ -17,10 +37,15 @@ reward:
   lam1: 0.3
   lam2: 0.2
   lam3: 0.15
-  lam_causal: 0.4   # action-causal bonus (§14.4 fix); sweep [0.2, 0.4, 0.6, 0.8]
-  # Terminal outcome reward (mortality + VFD); 0.0 = DISABLED (default). See
-  # track_a_config.yaml for the enable procedure (rebuild → retrain → verify).
-  w_outcome: 0.0
+  # MUST match track_a_config.yaml. Both are applied at load time by
+  # dataset.recombined_reward, so they are retrain-only (no dataset rebuild).
+  # They were 0.4 / 0.0 against Track A's 2.0 / 0.25, which made the two tracks'
+  # Q-functions incomparable in scale — the waveform ablation compares each arm's
+  # own max_a Q(s,a), so a different reward silently invalidated it.
+  lam_causal: 2.0
+  # Terminal outcome reward (mortality + VFD). Live now that the Track B cohort
+  # carries real stay_ids and therefore joins outcomes.csv (one terminal per stay).
+  w_outcome: 0.25
   outcome_horizon_days: 28
 
 cql:

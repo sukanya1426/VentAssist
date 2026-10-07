@@ -5,7 +5,7 @@ import type { RecommendationRecord } from "../../types/patient";
 
 /**
  * Everything this patient has been asked about, newest first, read back from
- * MongoDB. Each row is one `Get Recommendation` — change a setting, ask again, and
+ * the database. Each row is one `Get Recommendation` — change a setting, ask again, and
  * a second row appears under the same patient rather than replacing the first.
  *
  * `refreshKey` is bumped by the store on every saved result so a new ask shows up

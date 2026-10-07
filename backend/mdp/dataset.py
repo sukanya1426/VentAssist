@@ -67,10 +67,48 @@ def _split_of(stay_id: int, split: dict[str, set]) -> str:
     return "test"
 
 
-def _reward_cfg(track: str) -> dict:
+def _track_cfg(track: str) -> dict:
     cfg_name = "track_a_config.yaml" if track == "a" else "track_b_config.yaml"
-    cfg = yaml.safe_load((config.REPO_ROOT / "backend" / "configs" / cfg_name).read_text())
-    return cfg.get("reward", {}) or {}
+    return yaml.safe_load((config.REPO_ROOT / "backend" / "configs" / cfg_name).read_text())
+
+
+def _reward_cfg(track: str) -> dict:
+    return _track_cfg(track).get("reward", {}) or {}
+
+
+def _inherit_tabular_norm(stats: dict, track: str = "b") -> dict:
+    """Reuse the source policy's tabular normalisation when warm-starting.
+
+    A warm-started policy inherits the source's Q-function, which was fitted on
+    states z-scored with the SOURCE normaliser. Normalising the same raw features
+    with this track's own mean/std would feed that Q a different scale: on the
+    37-stay waveform cohort the shared features drift up to ~0.5 sigma in the mean
+    (FiO2) and ~25% in the std, so ``warm_start_from``'s exact [I | 0] identity
+    would hold in latent space while silently breaking on raw inputs — the
+    inherited Q would be evaluated off its training distribution.
+
+    So when ``init_from`` is set, the shared leading features keep the source's
+    statistics and only the track-specific extra features get new ones. This is
+    also what makes the 12-vs-18 ablation honest: both arms then see identical
+    z-values for the 12 clinical dims, and the only difference left is the
+    waveform dims themselves.
+    """
+    init_from = _track_cfg(track).get("init_from")
+    if not init_from:
+        return stats
+    src = config.MODEL_PATH / "normaliser_stats.json"
+    if not src.exists():
+        log.warning("init_from=%s but %s is missing — keeping this track's own "
+                    "tabular normalisation (the warm start will be inexact).",
+                    init_from, src.name)
+        return stats
+    src_stats = normaliser.load(src)
+    shared = [f for f in TABULAR if f in src_stats]
+    stats = {**stats, **{f: src_stats[f] for f in shared}}
+    log.info("Inherited normalisation for %d shared tabular features from %s "
+             "(warm start → the inherited Q sees its own z-scale).",
+             len(shared), src.name)
+    return stats
 
 
 def _reward_lam_causal(track: str) -> float:
@@ -255,6 +293,7 @@ def build_track_b() -> pd.DataFrame | None:
         wtrain = tx[[f"s_{f}" for f in WAVEFORM]]
     wtrain.columns = WAVEFORM
     stats.update(normaliser.fit(wtrain, WAVEFORM))
+    stats = _inherit_tabular_norm(stats, track="b")
     normaliser.save(stats, norm_path)
 
     out = config.PROCESSED_PATH / "mdp_track_b.parquet"

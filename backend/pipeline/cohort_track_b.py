@@ -1,21 +1,45 @@
-"""Track B cohort construction — waveform-anchored (re-anchor strategy).
+"""Track B cohort construction — waveform ∩ Track-A-episode intersection.
 
 Inverts the join direction of the Track A cohort: instead of starting from the
 ICU cohort and looking for waveforms (which yielded only ~2 time-aligned
-episodes), we start from the 198 mimic4wdb waveform recordings and search for
-invasive ventilation CONCURRENT with each recording window.
+episodes), we start from the 198 mimic4wdb waveform recordings and intersect each
+recording window with the ventilation episodes Track A already derived.
 
 Algorithm:
   1. Parse every waveform record header → (subject_id, record_id, rec_start,
-     rec_end, channels). [fast, no chartevents]
-  2. Scan chartevents (chunked) for the waveform subjects, keeping ventilator
-     setting events (PEEP/TV) that fall within [rec_start - 2h, rec_end + 2h]
-     (±2h buffer for monitor/EHR clock drift).
-  3. Build continuous vent windows (2h-gap merge) per (subject, record).
-  4. The Track B EPISODE is the overlap of the vent window with the recording
-     window; keep episodes with >= 4h overlap and a Resp channel present.
-  5. Join icustays/patients for stay_id/age/weight (degraded fallback applies);
-     apply age >= 18 / no-ECMO / no-cardiac-arrest exclusions.
+     rec_end, channels). [fast, header-only, no signal read]
+  2. Load the Track A cohort (``cohort.csv``) — ventilation episodes derived from
+     ``procedureevents`` itemid 225792, which carries EXPLICIT start/end times.
+  3. The Track B EPISODE is the intersection of a recording window with a Track A
+     ventilation episode for the same subject; keep intersections with
+     >= 4 h overlap and a Resp channel present.
+  4. Keep the single longest-overlap episode per stay, so (stay_id, hour) stays
+     unique for the aggregator and the MDP builder.
+
+WHY THE INTERSECTION, AND NOT A CHARTEVENTS RE-DERIVATION (the 2026-10-02 fix):
+this stage used to rebuild its own ventilation windows by merging sparse
+``chartevents`` PEEP/TV setting events with a 2 h gap — the approach Track A
+ABANDONED (see cohort.py) precisely because it fragments a continuous ventilation
+course. Settings are charted roughly every 4 h, so a 2 h merge gap turns each
+charting interval into its own "episode" and the >= 4 h filter then discards
+almost all of them. The funnel was: 111 records with overlap → 15 survivors.
+Concretely, subject 13240081 / record 87706224 came out as three separate 4.0 h
+fragments, where the true procedureevents window overlapping that recording is
+51.1 CONTINUOUS hours.
+
+Intersecting the authoritative Track A episodes instead yields **37 episodes /
+37 stays / ~1223 overlap-hours** (vs 15 / 13 / ~83) — about 12x the Track B
+training data from the same files, with no change to the raw data.
+
+Two further consequences of reusing the Track A cohort, both improvements:
+  * Its inclusion/exclusion criteria (age >= 18, >= 6 continuous vent hours, no
+    cardiac arrest, no ECMO) are inherited for free, so they are applied exactly
+    once and identically on both tracks.
+  * ``age`` / ``weight_kg`` / ``sepsis_flag`` are the real per-stay values from
+    procedureevents ``patientweight`` and the ICD tables, replacing the
+    population-default ``weight_kg = 80.0`` this stage used to stamp on every row.
+No ± clock-drift buffer is applied: intersecting two real intervals is already
+conservative (drift shrinks the window rather than inventing signal).
 
 Output: data/processed/cohort_track_b.csv with columns
     [subject_id, hadm_id, stay_id, record_id, vent_start, vent_end,
@@ -33,22 +57,20 @@ import glob
 import os
 import re
 
-import numpy as np
 import pandas as pd
 import wfdb
 
 from backend.pipeline import config
-from backend.pipeline import cohort as cohort_a
 from backend.pipeline.logging_utils import get_logger
 
 log = get_logger("cohort_track_b")
 
-# Reliable, continuously-charted ventilator settings for concurrency detection.
-_VENT_SETTING_ITEMIDS = set(config.CHART_FEATURE_ITEMIDS["PEEP"]
-                            + config.CHART_FEATURE_ITEMIDS["TV"])
 _ECG_LEADS = set(config.ECG_LEAD_PREFERENCE)
-_BUFFER = pd.Timedelta(hours=2)
 _MIN_OVERLAP_H = 4.0
+
+# Columns carried over verbatim from the Track A cohort row.
+_INHERITED = ["hadm_id", "age", "weight_kg", "sepsis_flag",
+              "patient_known", "age_imputed"]
 
 
 # --------------------------------------------------------------------------- #
@@ -62,6 +84,18 @@ def _all_waveform_subjects() -> list[int]:
             if m:
                 subs.append(int(m.group(1)))
     return sorted(set(subs))
+
+
+def _scan_segment_channels(base: str) -> set[str]:
+    chans: set[str] = set()
+    try:
+        full = wfdb.rdheader(base, rd_segments=True)
+        for seg in getattr(full, "segments", []) or []:
+            if seg is not None and getattr(seg, "sig_name", None):
+                chans.update(seg.sig_name)
+    except Exception:
+        pass
+    return chans
 
 
 def waveform_windows() -> pd.DataFrame:
@@ -94,63 +128,22 @@ def waveform_windows() -> pd.DataFrame:
     return df
 
 
-def _scan_segment_channels(base: str) -> set[str]:
-    chans: set[str] = set()
-    try:
-        full = wfdb.rdheader(base, rd_segments=True)
-        for seg in getattr(full, "segments", []) or []:
-            if seg is not None and getattr(seg, "sig_name", None):
-                chans.update(seg.sig_name)
-    except Exception:
-        pass
-    return chans
-
-
 # --------------------------------------------------------------------------- #
-# Step 2 — chartevents vent settings for the waveform subjects
+# Step 2 — the authoritative ventilation episodes
 # --------------------------------------------------------------------------- #
-def _scan_vent_events(subjects: set[int]) -> pd.DataFrame:
-    log.info("Scanning chartevents for vent settings of %d waveform subjects…",
-             len(subjects))
-    keep: list[pd.DataFrame] = []
-    reader = pd.read_csv(
-        config.CHARTEVENTS, chunksize=config.CHUNK_SIZE,
-        usecols=["subject_id", "stay_id", "charttime", "itemid", "valuenum"],
-        dtype={"subject_id": "Int64", "stay_id": "Int64",
-               "itemid": "Int64", "valuenum": "float64"},
-        parse_dates=["charttime"],
-    )
-    for i, chunk in enumerate(reader):
-        hit = chunk[chunk["subject_id"].isin(subjects)
-                    & chunk["itemid"].isin(_VENT_SETTING_ITEMIDS)]
-        if not hit.empty:
-            keep.append(hit)
-        if (i + 1) % 50 == 0:
-            log.info("  …processed %d chunks", i + 1)
-    if not keep:
-        return pd.DataFrame(columns=["subject_id", "stay_id", "charttime", "itemid"])
-    ev = pd.concat(keep, ignore_index=True)
-    ev["charttime"] = pd.to_datetime(ev["charttime"], errors="coerce")
-    ev = ev.dropna(subset=["charttime"])
-    log.info("Collected %d vent-setting events for waveform subjects.", len(ev))
-    return ev
-
-
-def _merge_windows(times: np.ndarray) -> list[tuple]:
-    """Merge sorted timestamps into windows with <= 2h internal gaps."""
-    if len(times) == 0:
-        return []
-    times = np.sort(times)
-    gap = np.timedelta64(config.VENT_MERGE_GAP_HOURS, "h")
-    windows = []
-    start = prev = times[0]
-    for t in times[1:]:
-        if t - prev > gap:
-            windows.append((start, prev))
-            start = t
-        prev = t
-    windows.append((start, prev))
-    return windows
+def _track_a_episodes() -> pd.DataFrame:
+    """Load the Track A cohort — procedureevents-derived, explicit start/end."""
+    path = config.PROCESSED_PATH / "cohort.csv"
+    if not path.exists():
+        raise FileNotFoundError(
+            f"{path} not found. Track B now intersects the Track A ventilation "
+            "episodes, so the Track A cohort stage must run first "
+            "(python -m backend.pipeline.cohort)."
+        )
+    epi = pd.read_csv(path, parse_dates=["vent_start", "vent_end"])
+    log.info("Track A episodes: %d across %d subjects.",
+             len(epi), epi["subject_id"].nunique())
+    return epi
 
 
 # --------------------------------------------------------------------------- #
@@ -161,119 +154,69 @@ def build() -> pd.DataFrame:
     wins = waveform_windows()
     if wins.empty:
         raise ValueError("No waveform recording windows found.")
+    epi = _track_a_episodes()
 
-    subjects = set(wins["subject_id"].unique())
-    ev = _scan_vent_events(subjects)
+    # Every (recording, ventilation-episode) pair for the same subject.
+    pairs = wins.merge(epi, on="subject_id", how="inner")
+    funnel = {"records": len(wins), "subjects_with_vent": pairs["subject_id"].nunique(),
+              "candidate_pairs": len(pairs)}
+    if pairs.empty:
+        log.warning("No waveform subject appears in the Track A cohort.")
+        return _write(pd.DataFrame(), funnel)
 
-    # reference tables + degraded-mode setup (reuse Track A helpers)
-    icustays = pd.read_csv(config.ICUSTAYS,
-                           usecols=["subject_id", "hadm_id", "stay_id", "intime", "outtime"],
-                           parse_dates=["intime", "outtime"])
-    patients = pd.read_csv(config.PATIENTS,
-                           usecols=["subject_id", "anchor_age"])
-    pat_age = patients.set_index("subject_id")["anchor_age"]
-    median_age = int(pat_age[pat_age >= config.MIN_AGE].median()) \
-        if pat_age.notna().any() else 65
+    pairs["ov_start"] = pairs[["rec_start", "vent_start"]].max(axis=1)
+    pairs["ov_end"] = pairs[["rec_end", "vent_end"]].min(axis=1)
+    pairs["overlap_hours"] = (pairs["ov_end"] - pairs["ov_start"]) / pd.Timedelta(hours=1)
 
-    weight_events = ev  # no weight itemid here; pull weight separately below
-    # weight per stay from a light WEIGHT itemid filter over the same subjects
-    # (reuse Track A scan would be heavy; approximate with population default)
-    pop_weight = 80.0
+    pairs = pairs[pairs["overlap_hours"] > 0]
+    funnel["pairs_with_overlap"] = len(pairs)
+    pairs = pairs[pairs["overlap_hours"] >= _MIN_OVERLAP_H]
+    funnel[f"passed_overlap_{int(_MIN_OVERLAP_H)}h"] = len(pairs)
+    pairs = pairs[pairs["has_resp"]]
+    funnel["passed_resp"] = len(pairs)
 
-    sepsis_hadm = cohort_a._sepsis_hadm_ids()
-    arrest_hadm = cohort_a._cardiac_arrest_hadm_ids()
-    icu_by_subject = {s: g for s, g in icustays.groupby("subject_id")}
+    # Truncate to the episode-length cap (Track A episodes are already capped, so
+    # this only binds if that cap is ever raised).
+    pairs["vent_start"] = pairs["ov_start"]
+    pairs["vent_end"] = pairs["ov_end"].where(
+        pairs["ov_end"] <= pairs["ov_start"] + pd.Timedelta(hours=config.MAX_EPISODE_HOURS),
+        pairs["ov_start"] + pd.Timedelta(hours=config.MAX_EPISODE_HOURS))
 
-    ev_by_subject = {s: g for s, g in ev.groupby("subject_id")} if not ev.empty else {}
+    # One episode per stay — the longest overlap — so that the aggregator and the
+    # MDP builder see a unique (stay_id, hour) key.
+    pairs = (pairs.sort_values("overlap_hours", ascending=False)
+                  .drop_duplicates(subset=["stay_id"], keep="first"))
+    funnel["unique_stays"] = len(pairs)
 
-    rows: list[dict] = []
-    breakdown = {"subjects_with_vent": 0, "records_with_overlap": 0,
-                 "passed_overlap_4h": 0, "passed_resp": 0}
+    cohort = pairs[["subject_id", "stay_id", "record_id",
+                    "vent_start", "vent_end", "rec_start", "rec_end",
+                    "overlap_hours", "has_ecg", "has_pleth", "has_resp",
+                    *_INHERITED]].copy()
+    cohort["overlap_hours"] = cohort["overlap_hours"].round(2)
+    cohort["resp_coverage_frac"] = 1.0      # refined per-hour by the aggregator
+    cohort = cohort[["subject_id", "hadm_id", "stay_id", "record_id",
+                     "vent_start", "vent_end", "rec_start", "rec_end",
+                     "overlap_hours", "resp_coverage_frac",
+                     "has_ecg", "has_pleth", "has_resp",
+                     "age", "weight_kg", "sepsis_flag",
+                     "patient_known", "age_imputed"]]
+    return _write(cohort.sort_values("stay_id").reset_index(drop=True), funnel)
 
-    for _, rec in wins.iterrows():
-        subject = int(rec["subject_id"])
-        rec_start, rec_end = rec["rec_start"], rec["rec_end"]
-        sev = ev_by_subject.get(subject)
-        if sev is None or sev.empty:
-            continue
-        # vent events within recording window (+/- buffer)
-        mask = (sev["charttime"] >= rec_start - _BUFFER) & \
-               (sev["charttime"] <= rec_end + _BUFFER)
-        sev_win = sev[mask]
-        if sev_win.empty:
-            continue
-        breakdown["subjects_with_vent"] += 1
 
-        # build vent windows, then overlap with the recording
-        for v_start, v_end in _merge_windows(sev_win["charttime"].to_numpy()):
-            v_start, v_end = pd.Timestamp(v_start), pd.Timestamp(v_end)
-            ov_start = max(v_start, rec_start)
-            ov_end = min(v_end, rec_end)
-            overlap_h = (ov_end - ov_start) / pd.Timedelta(hours=1)
-            if overlap_h <= 0:
-                continue
-            breakdown["records_with_overlap"] += 1
-            if overlap_h < _MIN_OVERLAP_H:
-                continue
-            breakdown["passed_overlap_4h"] += 1
-            if not rec["has_resp"]:
-                continue
-            breakdown["passed_resp"] += 1
-
-            # truncate episode to <= MAX_EPISODE_HOURS
-            ep_end = min(ov_end, ov_start + pd.Timedelta(hours=config.MAX_EPISODE_HOURS))
-
-            # map to a stay via icustays (recording overlaps the stay)
-            stay_id, hadm_id = None, None
-            sg = icu_by_subject.get(subject)
-            if sg is not None:
-                hit = sg[(sg["intime"] <= ep_end) & (sg["outtime"] >= ov_start)]
-                if not hit.empty:
-                    stay_id = int(hit.iloc[0]["stay_id"])
-                    hadm_id = int(hit.iloc[0]["hadm_id"]) if not pd.isna(hit.iloc[0]["hadm_id"]) else None
-            if stay_id is None:
-                # synthesise a deterministic stay id from subject+record
-                stay_id = int(f"9{subject % 10_000_000}")
-
-            # exclusions
-            if hadm_id is not None and hadm_id in arrest_hadm:
-                continue
-
-            patient_known = subject in pat_age.index and not pd.isna(pat_age.get(subject))
-            if patient_known:
-                age = int(pat_age.loc[subject])
-                if age < config.MIN_AGE:
-                    continue
-                age_imputed = False
-            else:
-                age = median_age
-                age_imputed = True
-
-            rows.append({
-                "subject_id": subject, "hadm_id": hadm_id, "stay_id": stay_id,
-                "record_id": rec["record_id"],
-                "vent_start": ov_start, "vent_end": ep_end,
-                "rec_start": rec_start, "rec_end": rec_end,
-                "overlap_hours": round(overlap_h, 2),
-                "resp_coverage_frac": 1.0,  # refined per-hour by the aggregator
-                "has_ecg": bool(rec["has_ecg"]), "has_pleth": bool(rec["has_pleth"]),
-                "has_resp": bool(rec["has_resp"]),
-                "age": age, "weight_kg": pop_weight,
-                "sepsis_flag": int(hadm_id in sepsis_hadm) if hadm_id is not None else 0,
-                "patient_known": int(patient_known), "age_imputed": int(age_imputed),
-            })
-
-    cohort = pd.DataFrame(rows).drop_duplicates(subset=["subject_id", "record_id", "vent_start"])
+def _write(cohort: pd.DataFrame, funnel: dict) -> pd.DataFrame:
     out = config.PROCESSED_PATH / "cohort_track_b.csv"
     cohort.to_csv(out, index=False)
-
-    log.info("Track B funnel: %s", breakdown)
-    log.info("Track B cohort: %d episodes across %d subjects → %s",
-             len(cohort), cohort["subject_id"].nunique() if not cohort.empty else 0, out)
+    log.info("Track B funnel: %s", funnel)
+    if cohort.empty:
+        log.warning("Track B cohort is EMPTY → %s", out)
+        return cohort
+    log.info("Track B cohort: %d episodes across %d subjects, "
+             "%.0f overlap-hours (median %.1f h) → %s",
+             len(cohort), cohort["subject_id"].nunique(),
+             cohort["overlap_hours"].sum(), cohort["overlap_hours"].median(), out)
     if len(cohort) < 10:
         log.warning("Track B cohort < 10 episodes — waveform/vent overlap is "
-                    "scarce in this data. Consider relaxing the 4h overlap "
-                    "threshold or note Track B as a proof-of-concept.")
+                    "scarce in this data. Note Track B as a proof-of-concept.")
     return cohort
 
 

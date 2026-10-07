@@ -12,10 +12,9 @@ gpytorch==1.11.0
 scikit-learn==1.5.0
 d3rlpy==2.4.0
 shap==0.45.0
-sqlalchemy==2.0.30
-# MongoDB (patient roster + recommendation history). [srv] pulls dnspython for
-# the mongodb+srv:// Atlas URI; motor is the async driver FastAPI awaits on.
-pymongo[srv]==4.17.0
-motor==3.7.1
+# PostgreSQL (clinician accounts, patient roster, recommendation history).
+# asyncpg is the async driver FastAPI awaits on; the schema is plain SQL in
+# backend/api/schema.sql and applied on startup, so no ORM or migration tool.
+asyncpg==0.31.0
 python-dotenv==1.0.1
 pyyaml==6.0.1

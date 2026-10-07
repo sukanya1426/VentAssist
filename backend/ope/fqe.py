@@ -34,7 +34,7 @@ def _load_policy(track: str):
 
 def fitted_q_evaluation(track: str = "a", K: int = 50, gamma: float = 0.99,
                         batch_size: int = 8192, steps_per_iter: int = 200,
-                        device: str = "cpu") -> dict:
+                        device: str = "cpu", write: bool = True) -> dict:
     d = D.load_mdp(track)
     feats = d["feature_order"]
     nf = "normaliser_stats.json" if track == "a" else "normaliser_stats_track_b.json"
@@ -98,7 +98,9 @@ def fitted_q_evaluation(track: str = "a", K: int = 50, gamma: float = 0.99,
               "V_std": round(v_std, 4), "n_test": int(len(test)),
               "n_transitions": int(len(d["actions"])), "K": K, "gamma": gamma,
               "timestamp": datetime.now(timezone.utc).isoformat()}
-    (config.LOGS_PATH / f"fqe_track_{track}.json").write_text(json.dumps(result, indent=2))
+    if write:
+        (config.LOGS_PATH / f"fqe_track_{track}.json").write_text(
+            json.dumps(result, indent=2))
     log.info("FQE Track %s: V̂=%.4f ± %.4f (n=%d)", track.upper(), v_hat, v_std, len(test))
     return result
 

@@ -1,7 +1,9 @@
 import axios from "axios";
 import type { RecommendationRequest, RecommendationResponse } from "../types/recommendation";
 import type { ValidationResponse } from "../types/validation";
-import type { Patient, PatientCreate, RecommendationRecord } from "../types/patient";
+import type {
+  Patient, PatientCreate, RecommendationRecord, WaveformExtraction,
+} from "../types/patient";
 import type { AuthResponse, AuthUser, LoginPayload, SignupPayload } from "../types/auth";
 import { getToken, notifySessionExpired } from "./session";
 
@@ -90,7 +92,65 @@ export async function getValidation(track = "a"): Promise<ValidationResponse> {
   return data;
 }
 
-// --- Roster (MongoDB-backed) ---
+// --- Waveform (Track B) ---
+
+/**
+ * Raw recording → the 6 Track B features, extracted server-side.
+ *
+ * This is Track B's entry point. The features have to be computed by the same
+ * code the training features came from (`backend/waveform/`), so extraction
+ * happens on the server rather than in the browser — a differently-computed
+ * feature would put the 18-dim state in units the policy was never fitted on.
+ *
+ * Partial coverage is a normal result, not a failure: a recording whose Resp
+ * belt was disconnected still yields usable ECG and Pleth features, and the
+ * report says which and why.
+ */
+export async function extractWaveform(file: File): Promise<WaveformExtraction> {
+  const form = new FormData();
+  form.append("file", file);
+  const { data } = await api.post<WaveformExtraction>("/waveform/extract", form);
+  return data;
+}
+
+/**
+ * Upload a WFDB record folder (.hea + .dat) → the 6 features.
+ *
+ * The dataset's own binary format, so a recording needs no transcription. The
+ * header and every .dat it references must go together: the header is what
+ * declares the layout, the sampling rate and which channel is which.
+ */
+export async function extractWaveformRecord(files: File[]): Promise<WaveformExtraction> {
+  const form = new FormData();
+  // The field name repeats — FastAPI collects them into one List[UploadFile].
+  for (const f of files) form.append("files", f);
+  const { data } = await api.post<WaveformExtraction>("/waveform/extract-record", form);
+  return data;
+}
+
+/** A WFDB record part: the binary .dat and the .hea that describes it. */
+export function isWfdbFile(name: string): boolean {
+  return /\.(hea|dat)$/i.test(name);
+}
+
+/**
+ * Does this file look like a waveform rather than a patient file?
+ *
+ * Checked on content, not the extension, so a `.csv` of samples and a `.txt`
+ * with an `fs:`/`channels:` header are both recognised. A patient file never
+ * carries a `signal:` section or thousands of bare numeric rows.
+ */
+export function looksLikeWaveform(text: string): boolean {
+  const head = text.slice(0, 4000);
+  if (/^\s*signal\s*:/im.test(head)) return true;
+  if (/^\s*fs\s*:/im.test(head) && /^\s*channels\s*:/im.test(head)) return true;
+  // A bare CSV export: a header naming the channels, then numeric rows.
+  const lines = head.split(/\r?\n/).filter((l) => l.trim() && !l.trim().startsWith("#"));
+  const numericRows = lines.filter((l) => /^-?\d/.test(l.trim())).length;
+  return numericRows >= 5 && /ecg|pleth|resp|\bII\b/i.test(lines[0] ?? "");
+}
+
+// --- Roster (PostgreSQL-backed) ---
 
 export async function listPatients(): Promise<Patient[]> {
   const { data } = await api.get<{ patients: Patient[] }>("/patients");

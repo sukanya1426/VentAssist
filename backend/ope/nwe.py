@@ -330,7 +330,15 @@ def _clinician_safety(d: dict, starts: np.ndarray, T: int) -> dict:
 
 
 def rollout_value(track: str = "a", T: int = 24, gamma: float = 0.99,
-                  n_starts: int = 200, propensity: str = "static") -> dict:
+                  n_starts: int = 200, propensity: str = "static",
+                  write: bool = True) -> dict:
+    # ``write`` exists because the canonical artifact under backend/logs/ is what
+    # the validation dashboard shows a clinician as the evidence behind the
+    # deployed model. A test runs this with tiny settings to stay fast, and if it
+    # wrote the artifact those toy numbers would silently replace the real
+    # evaluation — a 40-start, 4-step rollout presented as the policy's validation
+    # record. Tests pass write=False; only a deliberate evaluation run writes.
+
     d = D.load_mdp(track)
     nf = "normaliser_stats.json" if track == "a" else "normaliser_stats_track_b.json"
     stats = N.load(config.MODEL_PATH / nf)
@@ -395,8 +403,9 @@ def rollout_value(track: str = "a", T: int = 24, gamma: float = 0.99,
     # Static (default) writes the canonical log; dynamic writes a sidecar so the
     # deployed OPE numbers are never clobbered by the ablation path.
     suffix = "" if propensity == "static" else "_dynamic"
-    (config.LOGS_PATH / f"nwe_track_{track}{suffix}.json").write_text(
-        json.dumps(result, indent=2))
+    if write:
+        (config.LOGS_PATH / f"nwe_track_{track}{suffix}.json").write_text(
+            json.dumps(result, indent=2))
     log.info("NWE rollout Track %s: V̂=%.3f ± %.3f | π term-SpO₂≥95=%.2f agg=%.2f | "
              "clin term-SpO₂≥95=%.2f agg=%.2f", track.upper(),
              result["V_hat"], result["V_std"],

@@ -38,7 +38,7 @@ export function PatientDetail() {
   const s = useStore();
   const loadPatient = useStore((st) => st.loadPatient);
   const patient = usePatientById(patientId);
-  // The roster comes from MongoDB, so on a direct page load it is briefly empty.
+  // The roster comes from the database, so on a direct page load it is briefly empty.
   const rosterLoaded = useRoster((st) => st.loaded);
   const rosterError = useRoster((st) => st.error);
 
@@ -206,7 +206,11 @@ export function PatientDetail() {
                     selectedTrack: e.target.checked ? s.selectedTrack : "track_a",
                   })}
                 />
-                waveform available
+                <span title={
+                  "Ticked automatically for a patient uploaded with a recording. "
+                  + "Tick it by hand to enter the 6 features yourself; fields left "
+                  + "blank are imputed from the clinical values, not invented."
+                }>enter waveform features</span>
               </label>
             </SectionTitle>
             <div className="mt-4">
@@ -215,18 +219,43 @@ export function PatientDetail() {
                 waveformAvailable={s.waveformAvailable} />
             </div>
 
-            {s.selectedTrack === "track_b" && (
-              <div className="mt-4 grid grid-cols-3 gap-3">
-                {WAVE_FIELDS.map(([k, label]) => (
-                  <label key={k} className="block">
-                    <span className="caption">{label}</span>
-                    <input type="number" step={0.01} value={(s as any)[k]}
-                      onChange={(e) => s.setMeta({ [k]: parseFloat(e.target.value) } as any)}
-                      className="field mt-1" />
-                  </label>
-                ))}
-              </div>
-            )}
+            {s.selectedTrack === "track_b" && (() => {
+              // A blank field is "not measured", not zero. It is sent as null, the
+              // router counts it as missing, and the trained imputer predicts it
+              // from the clinical state — so the count below is the real coverage
+              // the recommendation stands on.
+              const missing = WAVE_FIELDS.filter(([k]) => (s as any)[k] == null);
+              return (
+                <>
+                  <div className="mt-4 grid grid-cols-3 gap-3">
+                    {WAVE_FIELDS.map(([k, label]) => {
+                      const v = (s as any)[k] as number | null;
+                      return (
+                        <label key={k} className="block">
+                          <span className="caption">{label}</span>
+                          <input type="number" step={0.01} value={v ?? ""}
+                            placeholder="not measured"
+                            onChange={(e) => s.setMeta({
+                              [k]: e.target.value === "" ? null : parseFloat(e.target.value),
+                            } as any)}
+                            className="field mt-1" />
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
+                    {missing.length === 0
+                      ? "All 6 features measured — 100% waveform coverage."
+                      : missing.length === WAVE_FIELDS.length
+                        ? "No waveform features measured. All 6 will be estimated from the clinical "
+                          + "values by the trained imputer, and the result will be labelled as imputed."
+                        : `${WAVE_FIELDS.length - missing.length}/6 measured — the rest `
+                          + `(${missing.map(([, l]) => l).join(", ")}) will be estimated from the `
+                          + "clinical values and reported as imputed."}
+                  </p>
+                </>
+              );
+            })()}
 
             <div className="mt-6">
               <div className="flex items-baseline justify-between">
@@ -454,7 +483,7 @@ export function PatientDetail() {
             </>
           )}
 
-          {/* Everything previously asked for this patient, read back from MongoDB. */}
+          {/* Everything previously asked for this patient, read back from the database. */}
           <RecommendationHistory patientId={patient.id} refreshKey={s.savedCount} />
 
           {/* Model-level evidence — the same for every patient, so it lives on its

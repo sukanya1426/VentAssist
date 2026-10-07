@@ -1,0 +1,32 @@
+# Test case 3 — hypercapnia on a low tidal volume
+# This is a TIER A file: clinical values only, no waveform block, so it opens on
+# Track A — the full-strength policy trained on 992,100 transitions.
+#
+# Expected: the policy should raise minute ventilation (increase TV).
+#
+# For the waveform-enhanced path, use folder 2 or 3 — those ship a recording and
+# the 6 features are extracted from it rather than typed in.
+
+name: Patient I
+age: 64
+sex: F
+bed: ICU-09
+summary: COPD exacerbation, CO2 retention on low tidal volume
+
+weight: 59
+
+PEEP: 6
+TV: 330
+FiO2: 0.45
+SpO2: 92
+PaO2: 68
+PaCO2: 66
+pH: 7.27
+HR: 104
+SBP: 118
+RR: 27
+RASS: -1
+Temp: 37.4
+
+ventilation_mode: volume_control
+track: track_a

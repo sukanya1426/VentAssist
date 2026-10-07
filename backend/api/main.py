@@ -14,6 +14,7 @@ from backend.api.routes.auth import router as auth_router
 from backend.api.routes.patients import router as patients_router
 from backend.api.routes.recommend import router as recommend_router
 from backend.api.routes.validation import router as validation_router
+from backend.api.routes.waveform import router as waveform_router
 from backend.api.seed import seed_presets
 from backend.api.state import get_services
 
@@ -38,19 +39,23 @@ _signed_in = [Depends(current_user)]
 app.include_router(recommend_router, prefix="/api", dependencies=_signed_in)
 app.include_router(validation_router, prefix="/api", dependencies=_signed_in)
 app.include_router(patients_router, prefix="/api", dependencies=_signed_in)
+# Waveform extraction is the Track B entry point: a recording in, the 6 features
+# out. Guarded like the rest — an uploaded recording is patient data.
+app.include_router(waveform_router, prefix="/api", dependencies=_signed_in)
 
 
 @app.on_event("startup")
 async def _warm() -> None:
     get_services()   # load models once at startup
-    # The roster lives in Mongo, but inference does not depend on it — a database
-    # that is down degrades the roster to a 503, it does not stop the app booting.
+    # The roster lives in PostgreSQL, but inference does not depend on it — a
+    # database that is down degrades the roster to a 503, it does not stop boot.
     if await db.ping():
-        await db.ensure_indexes()
+        # Idempotent DDL + the 125-row action space, then the preset roster.
+        await db.ensure_schema()
         await seed_presets()
     else:
-        log.warning("MongoDB unreachable at startup — /api/patients will return 503 "
-                    "and recommendations will not be saved.")
+        log.warning("PostgreSQL unreachable at startup — /api/patients will return "
+                    "503 and recommendations will not be saved.")
 
 
 @app.on_event("shutdown")

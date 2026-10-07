@@ -1,0 +1,50 @@
+# Hyperoxic on 100% FiO2
+# Source: MIMIC-IV-WDB subject p15342703, record 86380383, ICU stay 31066662, hour 0.
+# The 12 clinical fields are REAL: chartevents/labevents via the VentAssist pipeline.
+#
+# This file carries NO waveform block. Upload it TOGETHER with waveform-10min.txt
+# and the 6 Track B features are extracted from that recording by backend/waveform/
+# — the same extractors the training features came from. That is the point of this
+# folder, so the features must come from the signal, not from numbers typed here.
+#
+# Expected recommendation: Increase PEEP by 2 cmH2O - Hold tidal volume - Decrease FiO2 by 0.10
+# Expected confidence: 0.635
+# Expected safety flags:
+#   WARNING: Projected FiO2 0.90 exceeds the oxygen toxicity threshold (0.80)
+# No arrhythmia flag is expected: the extracted Arrhythmia_rate is 0.00. (An
+# earlier version of this file hardcoded 0.30 and documented an arrhythmia
+# warning, which only appeared if you uploaded the clinical file on its own.)
+#
+# Uploading the recording sets Track B, but it will NOT change the recommendation:
+# the trained model assigns the waveform dims zero weight, so Track B reports the
+# same action and the same confidence as Track A and labels itself
+# 'waveform recorded, not yet influencing'.
+
+name: Patient B2
+age: 76
+sex: M
+bed: ICU-B2
+summary: Hyperoxic on 100% FiO2
+
+weight: 87.7
+# PaO2, PaCO2, pH: population median that gp_imputation falls back
+# to when the episode has no arterial blood gas this hour — imputed, not
+# measured. The remaining values are charted measurements.
+
+PEEP: 5.05
+TV: 423
+FiO2: 1.00
+SpO2: 99.5
+PaO2: 100
+PaCO2: 41
+pH: 7.37
+HR: 85
+SBP: 84
+RR: 18
+RASS: -5
+Temp: 35.4
+
+ventilation_mode: volume_control
+# track is set to track_b automatically when the recording is
+# uploaded alongside this file and its 6 features are extracted.
+track: track_a
