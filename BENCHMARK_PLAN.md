@@ -126,15 +126,47 @@ swapping in their reward and changing nothing else.
 
 ### Phase 1 — Adopt their evaluation rigor *(in `benchmark/`, do first)*
 
-| # | Item | Why | Module |
-|---|---|---|---|
-| 1 | **Action-conditional density `p(a|s)`** + action log-likelihood | Their Rule 5 gate; blocks their headline metric pair. *Easier for us*: our action space is fully discrete → a 125-way categorical, not Gaussian+categorical | `benchmark/action_density.py` |
-| 2 | **Safety violation rates vs clinician** | Their Rule 9 — **the reference repo does NOT have these**, and they call it "the strongest differentiator a successor system can claim." We already own the logic in `backend/router/safety_filter.py` | `benchmark/safety_metrics.py` |
-| 3 | **Stratified + frozen split** (episode-length quartile × outcome, persisted CSVs) | Test-set difficulty must match | `benchmark/split_compat.py` |
-| 4 | **Seeds + CI** (N=5, mean ± CI on every headline number) | Single-run numbers are noise | `benchmark/runner.py` |
-| 5 | **Equal hyperparameter budget** for every method | Otherwise the comparison is rigged | `benchmark/runner.py` |
-| 6 | **AI-vs-clinician behavioural analyses**: agreement, per-setting deviation, **churn** | Clinically legible secondary metrics | `benchmark/behaviour_compare.py` |
-| 7 | **Never report FQE value alone** — always the triple `(value, action-likelihood, safety-violation rate)` | Their Rule 5: an FQE gain with a likelihood drop is *extrapolation*, not improvement | reporting |
+**STATUS: all 7 items implemented (2026-10-07).** Items 1–2 landed earlier; 3–6 and
+the item-7 reporting discipline landed together. Results in `benchmark/results/`.
+
+| # | Item | Why | Module | Status |
+|---|---|---|---|---|
+| 1 | **Action-conditional density `p(a|s)`** + action log-likelihood | Their Rule 5 gate; blocks their headline metric pair. *Easier for us*: our action space is fully discrete → a 125-way categorical, not Gaussian+categorical | `benchmark/action_density.py` | ✅ |
+| 2 | **Safety violation rates vs clinician** | Their Rule 9 — **the reference repo does NOT have these**, and they call it "the strongest differentiator a successor system can claim." We already own the logic in `backend/router/safety_filter.py` | `benchmark/safety_metrics.py` | ✅ |
+| 3 | **Stratified + frozen split** (episode-length quartile × outcome, persisted CSVs) | Test-set difficulty must match | `benchmark/split_compat.py` | ✅ |
+| 4 | **Seeds + CI** (N=5, mean ± CI on every headline number) | Single-run numbers are noise | `benchmark/runner.py` | ✅ |
+| 5 | **Equal hyperparameter budget** for every method | Otherwise the comparison is rigged | `benchmark/runner.py` | ✅ |
+| 6 | **AI-vs-clinician behavioural analyses**: agreement, per-setting deviation, **churn** | Clinically legible secondary metrics | `benchmark/behaviour_compare.py` | ✅ |
+| 7 | **Never report FQE value alone** — always the triple `(value, action-likelihood, safety-violation rate)` | Their Rule 5: an FQE gain with a likelihood drop is *extrapolation*, not improvement | reporting | ✅ partial |
+
+**On item 7's "partial".** `runner.py` reports value and the safety rate per seed,
+so two legs of the triple carry a CI. The clinician **action log-likelihood** is
+not per-seed by design: it is a property of the *behaviour* policy, so it is
+identical across our training seeds and is computed once in
+`benchmark/action_density.py`. The triple is therefore assembled from two
+artifacts rather than one — stated here so nobody reads the omission as an
+oversight.
+
+**What Phase 1 turned up that was not on the list.**
+
+* `backend/rl/trainer.py` pinned the minibatch stream to `config.SPLIT_SEED` but
+  never called `torch.manual_seed`, so weight initialisation varied run to run.
+  Training looked deterministic and was not: **the deployed `policy_track_a.pt`
+  is not bit-reproducible from the code that made it.** The trainer now takes an
+  explicit `seed` (default `None` = the historical path, so the deploy gate is
+  unaffected), and the checkpoint records it — `seed: null` marks a checkpoint
+  from before seeding existed.
+* The shipped hash split is **already balanced**: its test fold matches the
+  population within 0.75pp in every one of the 8 strata, and its mortality rate
+  is 0.2191 against a population 0.2130. The single-draw objection is therefore
+  answered with evidence rather than by appealing to the hash, and the stratified
+  split (max deviation 0.0001) is a belt-and-braces artifact, not a correction.
+* Confidence is **well calibrated against clinician agreement** (ECE 0.041,
+  Spearman +0.289) up to about 0.74, then **inverts sharply**: the top bin
+  (confidence ~0.81, n=192 of 198,050) agrees with the clinician only 11% of the
+  time. It carries **no mortality signal** (Spearman +0.040), which is the
+  correct result for a decision confidence and settles how the SRS must
+  describe it.
 
 ### Phase 2 — Build the common arena
 Freeze: their split · their 26-dim state · **their evaluation reward** · their `dist_fqe_config.yml`
