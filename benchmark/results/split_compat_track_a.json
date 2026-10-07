@@ -1,0 +1,124 @@
+{
+  "track": "a",
+  "n_stays": 23955,
+  "n_transitions": 992100,
+  "n_strata": 8,
+  "seed": 20260715,
+  "target_proportions": {
+    "train": 0.69998,
+    "val": 0.09998,
+    "test": 0.20004
+  },
+  "population_mortality_rate": 0.21298,
+  "shipped": {
+    "summary": {
+      "n_stays": 4792,
+      "n_transitions": 198050,
+      "mean_episode_length": 41.329,
+      "median_episode_length": 37.0,
+      "mortality_rate": 0.21912,
+      "max_abs_stratum_deviation": 0.00746
+    },
+    "stratum_balance": {
+      "len_q1|died": {
+        "population_share": 0.02571,
+        "test_share": 0.02337,
+        "abs_deviation": 0.00234
+      },
+      "len_q1|survived": {
+        "population_share": 0.2243,
+        "test_share": 0.22371,
+        "abs_deviation": 0.00059
+      },
+      "len_q2|died": {
+        "population_share": 0.04262,
+        "test_share": 0.05008,
+        "abs_deviation": 0.00746
+      },
+      "len_q2|survived": {
+        "population_share": 0.20739,
+        "test_share": 0.20826,
+        "abs_deviation": 0.00087
+      },
+      "len_q3|died": {
+        "population_share": 0.06642,
+        "test_share": 0.06949,
+        "abs_deviation": 0.00307
+      },
+      "len_q3|survived": {
+        "population_share": 0.18355,
+        "test_share": 0.1803,
+        "abs_deviation": 0.00325
+      },
+      "len_q4|died": {
+        "population_share": 0.07823,
+        "test_share": 0.07617,
+        "abs_deviation": 0.00206
+      },
+      "len_q4|survived": {
+        "population_share": 0.17178,
+        "test_share": 0.16861,
+        "abs_deviation": 0.00317
+      }
+    }
+  },
+  "stratified": {
+    "summary": {
+      "n_stays": 4791,
+      "n_transitions": 198893,
+      "mean_episode_length": 41.514,
+      "median_episode_length": 38.0,
+      "mortality_rate": 0.2129,
+      "max_abs_stratum_deviation": 8e-05
+    },
+    "stratum_balance": {
+      "len_q1|died": {
+        "population_share": 0.02571,
+        "test_share": 0.02567,
+        "abs_deviation": 4e-05
+      },
+      "len_q1|survived": {
+        "population_share": 0.2243,
+        "test_share": 0.22438,
+        "abs_deviation": 8e-05
+      },
+      "len_q2|died": {
+        "population_share": 0.04262,
+        "test_share": 0.04258,
+        "abs_deviation": 4e-05
+      },
+      "len_q2|survived": {
+        "population_share": 0.20739,
+        "test_share": 0.20747,
+        "abs_deviation": 8e-05
+      },
+      "len_q3|died": {
+        "population_share": 0.06642,
+        "test_share": 0.06637,
+        "abs_deviation": 4e-05
+      },
+      "len_q3|survived": {
+        "population_share": 0.18355,
+        "test_share": 0.18347,
+        "abs_deviation": 8e-05
+      },
+      "len_q4|died": {
+        "population_share": 0.07823,
+        "test_share": 0.07827,
+        "abs_deviation": 4e-05
+      },
+      "len_q4|survived": {
+        "population_share": 0.17178,
+        "test_share": 0.17178,
+        "abs_deviation": 0.0
+      }
+    }
+  },
+  "notes": {
+    "purpose": "benchmark split only \u2014 the shipped split remains authoritative for the deployed policy",
+    "stratification": "episode-length quartile x mortality (unknown outcome kept as its own class, not folded into survivors)",
+    "allocation": "largest-remainder within each stratum, ordered by a hash of the stay id so the split is reproducible from ids alone"
+  },
+  "timestamp": "2026-10-07T06:03:58.827887+00:00",
+  "verdict": "shipped split is already balanced \u2014 stratification is not needed to defend it"
+}

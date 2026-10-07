@@ -126,15 +126,95 @@ swapping in their reward and changing nothing else.
 
 ### Phase 1 — Adopt their evaluation rigor *(in `benchmark/`, do first)*
 
-| # | Item | Why | Module |
-|---|---|---|---|
-| 1 | **Action-conditional density `p(a|s)`** + action log-likelihood | Their Rule 5 gate; blocks their headline metric pair. *Easier for us*: our action space is fully discrete → a 125-way categorical, not Gaussian+categorical | `benchmark/action_density.py` |
-| 2 | **Safety violation rates vs clinician** | Their Rule 9 — **the reference repo does NOT have these**, and they call it "the strongest differentiator a successor system can claim." We already own the logic in `backend/router/safety_filter.py` | `benchmark/safety_metrics.py` |
-| 3 | **Stratified + frozen split** (episode-length quartile × outcome, persisted CSVs) | Test-set difficulty must match | `benchmark/split_compat.py` |
-| 4 | **Seeds + CI** (N=5, mean ± CI on every headline number) | Single-run numbers are noise | `benchmark/runner.py` |
-| 5 | **Equal hyperparameter budget** for every method | Otherwise the comparison is rigged | `benchmark/runner.py` |
-| 6 | **AI-vs-clinician behavioural analyses**: agreement, per-setting deviation, **churn** | Clinically legible secondary metrics | `benchmark/behaviour_compare.py` |
-| 7 | **Never report FQE value alone** — always the triple `(value, action-likelihood, safety-violation rate)` | Their Rule 5: an FQE gain with a likelihood drop is *extrapolation*, not improvement | reporting |
+**STATUS: all 7 items implemented (2026-10-07).** Items 1–2 landed earlier; 3–6 and
+the item-7 reporting discipline landed together. Results in `benchmark/results/`.
+
+| # | Item | Why | Module | Status |
+|---|---|---|---|---|
+| 1 | **Action-conditional density `p(a|s)`** + action log-likelihood | Their Rule 5 gate; blocks their headline metric pair. *Easier for us*: our action space is fully discrete → a 125-way categorical, not Gaussian+categorical | `benchmark/action_density.py` | ✅ |
+| 2 | **Safety violation rates vs clinician** | Their Rule 9 — **the reference repo does NOT have these**, and they call it "the strongest differentiator a successor system can claim." We already own the logic in `backend/router/safety_filter.py` | `benchmark/safety_metrics.py` | ✅ |
+| 3 | **Stratified + frozen split** (episode-length quartile × outcome, persisted CSVs) | Test-set difficulty must match | `benchmark/split_compat.py` | ✅ |
+| 4 | **Seeds + CI** (N=5, mean ± CI on every headline number) | Single-run numbers are noise | `benchmark/runner.py` | ✅ |
+| 5 | **Equal hyperparameter budget** for every method | Otherwise the comparison is rigged | `benchmark/runner.py` | ✅ |
+| 6 | **AI-vs-clinician behavioural analyses**: agreement, per-setting deviation, **churn** | Clinically legible secondary metrics | `benchmark/behaviour_compare.py` | ✅ |
+| 7 | **Never report FQE value alone** — always the triple `(value, action-likelihood, safety-violation rate)` | Their Rule 5: an FQE gain with a likelihood drop is *extrapolation*, not improvement | reporting | ✅ partial |
+
+**On item 7's "partial".** `runner.py` reports value and the safety rate per seed,
+so two legs of the triple carry a CI. The clinician **action log-likelihood** is
+not per-seed by design: it is a property of the *behaviour* policy, so it is
+identical across our training seeds and is computed once in
+`benchmark/action_density.py`. The triple is therefore assembled from two
+artifacts rather than one — stated here so nobody reads the omission as an
+oversight.
+
+**What Phase 1 turned up that was not on the list.**
+
+* `backend/rl/trainer.py` pinned the minibatch stream to `config.SPLIT_SEED` but
+  never called `torch.manual_seed`, so weight initialisation varied run to run.
+  Training looked deterministic and was not: **the deployed `policy_track_a.pt`
+  is not bit-reproducible from the code that made it.** The trainer now takes an
+  explicit `seed` (default `None` = the historical path, so the deploy gate is
+  unaffected), and the checkpoint records it — `seed: null` marks a checkpoint
+  from before seeding existed.
+* The shipped hash split is **already balanced**: its test fold matches the
+  population within 0.75pp in every one of the 8 strata, and its mortality rate
+  is 0.2191 against a population 0.2130. The single-draw objection is therefore
+  answered with evidence rather than by appealing to the hash, and the stratified
+  split (max deviation 0.0001) is a belt-and-braces artifact, not a correction.
+* Confidence is **well calibrated against clinician agreement** (ECE 0.041,
+  Spearman +0.289) up to about 0.74, then **inverts sharply**: the top bin
+  (confidence ~0.81, n=192 of 198,050) agrees with the clinician only 11% of the
+  time. It carries **no mortality signal** (Spearman +0.040), which is the
+  correct result for a decision confidence and settles how the SRS must
+  describe it.
+* **The deployed checkpoint underperforms a retrain by more than seed noise.**
+  Deployed `policy_track_a.pt` scores FQE **1.8787**; five fresh seeds under an
+  identical budget score **2.4823, CI95 [2.3813, 2.5833]** — the deployed value
+  sits 0.50 *below* the lower bound. Same encoding, same 198,050 test
+  transitions, so this is a valid comparison. It is the measured cost of the
+  `state_dict()` aliasing bug (`best_sd = model.state_dict()` returned
+  references to the live weights, so early stopping could never restore the best
+  checkpoint, and the deployed artifact is the step-27,000 weights). Evidence for
+  retraining — **not** a claim the deployed model is unsafe; it still passes 8/8.
+* **The checkpoint interval WAS hiding a better model — confirmed and fixed.**
+  All five seeds selected step **10,000**, the *first* checkpoint evaluated, then
+  early-stopped near 30,000: the signature of an interval too coarse to locate
+  the minimum rather than of a genuine optimum. Re-running all five seeds at
+  `checkpoint_every: 500` puts every one of them at step **5,500–6,000**, and
+  lowers best validation Q-loss from **1.5340 [1.5135, 1.5545]** to **1.4802
+  [1.4740, 1.4864]** — non-overlapping CIs. Step ~6,000 is exactly the
+  best-validation step the handoff reported for the deployed model, reached here
+  independently. `backend/configs/track_a_config.yaml` is now
+  `checkpoint_every: 500`; `early_stop_patience` needed no change because
+  patience is counted in steps (`stale += ckpt_every`), not in checkpoints.
+  Track B already used 250 and was never affected. Evidence:
+  `benchmark/results/checkpoint_granularity_track_a.json`.
+* **The canonical `action_density` artifact was a reduced test run.** Both
+  `action_density.evaluate` and `safety_metrics.evaluate` wrote unconditionally
+  and `test_action_density` called the first with `epochs=8` against a default of
+  15, so the artifact the Rule 5 likelihood pair is quoted from was last written
+  by the test suite. Regenerated at 15 epochs the Δ is **+0.0226**, not the
+  +0.0519 that was committed — same sign (the policy is on-support, which is what
+  Rule 5 asks) but **the margin was overstated by more than 2×**. Both entry
+  points now take `write`, their tests pass `write=False`, `action_density`
+  records `epochs`, and `benchmark/tests/test_artifacts_not_clobbered.py` guards
+  it. Ground rule 4 of this document should be read as requiring a `write` flag
+  on every entry point that persists a result.
+* **The lung-protective deviation survives seeds.** Mean ΔTV **−7.45 mL**, CI95
+  **[−8.40, −6.50]** — entirely below zero. The policy systematically asks for
+  lower tidal volumes than the clinician chose, and that is not seed noise.
+* **IPW makes the policy worse, so `enabled: false` is now an evidenced
+  decision.** Five seeds with IPW on, same seeds and same budget: FQE collapses
+  **2.4823 [2.3813, 2.5833] → 0.2382 [0.0696, 0.4069]**, the action repertoire
+  shrinks **34.8 → 11.8** distinct actions, and validation loss rises **1.5340 →
+  1.8761** — all three separated. The one metric that *improves*,
+  `behaviour_match` 0.5322 → 0.5867, is a trap: hold share rises in step
+  (0.6309 → 0.7027, toward the clinicians' 0.7765) while diversity collapses, so
+  the policy agrees more by mimicking the majority class. Agreement must never be
+  read without value and diversity beside it. Note the scope: this is IPW *as
+  implemented* (weights clipped to [0.1, 8.63], mean 1.000, p99 1.657 — a mild
+  reweighting with a severe effect), and it addresses **measured** confounding
+  only, so it leaves the unmeasured problem untouched either way.
 
 ### Phase 2 — Build the common arena
 Freeze: their split · their 26-dim state · **their evaluation reward** · their `dist_fqe_config.yml`

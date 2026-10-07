@@ -8,7 +8,15 @@ beta: 2.0         # advantage temperature
 lr: 3.0e-4
 batch_size: 256
 total_steps: 100000
-checkpoint_every: 10000
+# 500, not 10000. Measured 2026-10-07 (benchmark/results/checkpoint_granularity_track_a.json):
+# every one of 5 seeds has its validation optimum near step 5,750, which a 10,000-step
+# interval cannot see — it simply never looks there. All 5 seeds under the old setting
+# selected step 10,000, the FIRST checkpoint evaluated, which is the signature of an
+# interval too coarse to locate the minimum rather than of a genuine optimum. Finer
+# checkpointing lowers best val_q from 1.5340 [1.5135, 1.5545] to 1.4802 [1.4740,
+# 1.4864] — non-overlapping CIs. Costs nothing: validation is cheap relative to a
+# training step, and every seed early-stops by 14,000 anyway.
+checkpoint_every: 500
 early_stop_patience: 20000
 
 reward:

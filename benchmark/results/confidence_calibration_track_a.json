@@ -1,0 +1,175 @@
+{
+  "track": "a",
+  "n_test": 198050,
+  "n_transitions": 992100,
+  "structural_ceiling": {
+    "info_weight_cap": 0.85,
+    "clip": [
+      0.3,
+      0.97
+    ],
+    "achievable_range": [
+      0.3,
+      0.8491
+    ],
+    "implication": "a 0-1 event cannot be perfectly calibrated against a number confined to this range; read monotonicity (spearman) as the primary result, not ECE"
+  },
+  "primary_agreement_with_clinician": {
+    "bins": [
+      {
+        "bin": 0,
+        "range": [
+          0.3,
+          0.3546
+        ],
+        "n": 8487,
+        "share": 0.0429,
+        "mean_confidence": 0.3169,
+        "observed_rate": 0.2823,
+        "gap_confidence_minus_observed": 0.0346
+      },
+      {
+        "bin": 1,
+        "range": [
+          0.3546,
+          0.4092
+        ],
+        "n": 11166,
+        "share": 0.0564,
+        "mean_confidence": 0.3862,
+        "observed_rate": 0.3289,
+        "gap_confidence_minus_observed": 0.0574
+      },
+      {
+        "bin": 2,
+        "range": [
+          0.4092,
+          0.4638
+        ],
+        "n": 26940,
+        "share": 0.136,
+        "mean_confidence": 0.4386,
+        "observed_rate": 0.3866,
+        "gap_confidence_minus_observed": 0.0521
+      },
+      {
+        "bin": 3,
+        "range": [
+          0.4638,
+          0.5184
+        ],
+        "n": 29659,
+        "share": 0.1498,
+        "mean_confidence": 0.4913,
+        "observed_rate": 0.4908,
+        "gap_confidence_minus_observed": 0.0005
+      },
+      {
+        "bin": 4,
+        "range": [
+          0.5184,
+          0.573
+        ],
+        "n": 31061,
+        "share": 0.1568,
+        "mean_confidence": 0.5458,
+        "observed_rate": 0.5827,
+        "gap_confidence_minus_observed": -0.0368
+      },
+      {
+        "bin": 5,
+        "range": [
+          0.573,
+          0.6276
+        ],
+        "n": 28604,
+        "share": 0.1444,
+        "mean_confidence": 0.6001,
+        "observed_rate": 0.6523,
+        "gap_confidence_minus_observed": -0.0522
+      },
+      {
+        "bin": 6,
+        "range": [
+          0.6276,
+          0.6822
+        ],
+        "n": 28531,
+        "share": 0.1441,
+        "mean_confidence": 0.6552,
+        "observed_rate": 0.7081,
+        "gap_confidence_minus_observed": -0.0529
+      },
+      {
+        "bin": 7,
+        "range": [
+          0.6822,
+          0.7368
+        ],
+        "n": 28131,
+        "share": 0.142,
+        "mean_confidence": 0.7072,
+        "observed_rate": 0.7498,
+        "gap_confidence_minus_observed": -0.0426
+      },
+      {
+        "bin": 8,
+        "range": [
+          0.7368,
+          0.7914
+        ],
+        "n": 5279,
+        "share": 0.0267,
+        "mean_confidence": 0.7508,
+        "observed_rate": 0.7115,
+        "gap_confidence_minus_observed": 0.0393
+      },
+      {
+        "bin": 9,
+        "range": [
+          0.7914,
+          0.846
+        ],
+        "n": 192,
+        "share": 0.001,
+        "mean_confidence": 0.8067,
+        "observed_rate": 0.1094,
+        "gap_confidence_minus_observed": 0.6974
+      }
+    ],
+    "ece": 0.04058,
+    "mce": 0.69736,
+    "brier": 0.22581,
+    "base_rate": 0.56988,
+    "confidence_range_observed": [
+      0.3,
+      0.846
+    ],
+    "spearman_confidence_vs_agreement": 0.28882,
+    "target": "P(policy action == clinician action), 125-way"
+  },
+  "confidence_distribution": {
+    "mean": 0.5565,
+    "sd": 0.1134,
+    "p05": 0.365,
+    "median": 0.559,
+    "p95": 0.725,
+    "share_at_floor": 0.0192,
+    "share_at_ceiling": 0.0
+  },
+  "margin_distribution": {
+    "mean": 0.4467,
+    "median": 0.413,
+    "share_negative": 0.0
+  },
+  "timestamp": "2026-10-07T06:13:59.778373+00:00",
+  "secondary_outcome_association": {
+    "n_with_outcome": 198050,
+    "survival_base_rate": 0.73065,
+    "spearman_confidence_vs_survival": 0.03951,
+    "mean_confidence_survivors": 0.5597,
+    "mean_confidence_died": 0.5478,
+    "interpretation": "DESCRIPTIVE ONLY, NOT a calibration target. Confidence measures decision sharpness, never P(survival); a confident recommendation on a dying patient is not miscalibrated. Any gap here is confounded by severity, which drives both the outcome and how decisive the Q-function is."
+  },
+  "verdict": "confidence is monotonically informative about clinician agreement"
+}

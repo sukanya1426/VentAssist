@@ -85,13 +85,31 @@ def _normalise(d: dict, track: str) -> dict:
 
 def _run_training(d: dict, train_idx: np.ndarray, val_idx: np.ndarray,
                   cfg: dict, steps: int | None, device: str,
-                  tag: str = "") -> tuple[HybridIQL, float, dict]:
+                  tag: str = "", seed: int | None = None,
+                  ) -> tuple[HybridIQL, float, dict]:
     """Core HybridIQL training loop with early stopping.
 
     Returns (model, best_val_q, provenance), where provenance is empty unless the
     config asked for a warm start.
+
+    ``seed`` controls BOTH sources of run-to-run variation, which were previously
+    handled inconsistently: the minibatch sampler was pinned to
+    ``config.SPLIT_SEED`` while ``torch`` was never seeded at all, so network
+    weight initialisation inherited whatever global RNG state the process
+    happened to be in. Training was therefore not reproducible even though it
+    looked like it was — the deployed checkpoint cannot be reproduced bit-for-bit
+    from this code. Passing a seed makes a run reproducible and lets
+    ``benchmark/runner.py`` vary the seed deliberately to put a confidence
+    interval on every headline number.
+
+    ``seed=None`` is the default and leaves the historical behaviour exactly as
+    it was (minibatches from ``SPLIT_SEED``, torch unseeded), so the deployed
+    pipeline and the deploy gate are untouched by this parameter's existence.
     """
     total_steps = steps if steps is not None else cfg["total_steps"]
+    if seed is not None:
+        # Before the model is constructed — this is what fixes weight init.
+        torch.manual_seed(seed)
     ckpt_every = min(cfg["checkpoint_every"], max(500, total_steps // 10))
     if len(train_idx) == 0:
         train_idx = np.arange(len(d["actions"]))
@@ -147,7 +165,10 @@ def _run_training(d: dict, train_idx: np.ndarray, val_idx: np.ndarray,
         else:
             log.info("%sstep 0 (warm-start baseline, no fine-tuning) | val_q=%.4f",
                      tag, best_val)
-    rng = np.random.default_rng(config.SPLIT_SEED)
+    # Offset rather than replaced, so seed=None reproduces the historical stream
+    # and each seed draws a genuinely different minibatch sequence.
+    rng = np.random.default_rng(config.SPLIT_SEED
+                                if seed is None else config.SPLIT_SEED + seed)
     last: dict = {}
     for step in range(total_steps):
         bi = rng.choice(train_idx, size=batch_size, replace=len(train_idx) < batch_size)
@@ -254,7 +275,8 @@ def train_kfold(track: str, k: int = 5, steps: int | None = None,
     return {"cv_summary": summary, "final": final}
 
 
-def train(track: str, steps: int | None = None, device: str = "cpu") -> dict:
+def train(track: str, steps: int | None = None, device: str = "cpu",
+          seed: int | None = None) -> dict:
     cfg_name = "track_a_config.yaml" if track == "a" else "track_b_config.yaml"
     cfg = yaml.safe_load((config.REPO_ROOT / "backend" / "configs" / cfg_name).read_text())
     d = _normalise(D.load_mdp(track), track)
@@ -267,7 +289,7 @@ def train(track: str, steps: int | None = None, device: str = "cpu") -> dict:
              track.upper(), len(train_idx), len(val_idx), d["states"].shape[1])
 
     model, best_val, provenance = _run_training(d, train_idx, val_idx, cfg,
-                                                steps, device)
+                                                steps, device, seed=seed)
     out = config.MODEL_PATH / f"policy_track_{track}.pt"
     # Persist the training operating point IN the checkpoint so the deployed
     # artifact is self-describing (no re-deriving lam_causal/alpha from logs).
@@ -280,6 +302,10 @@ def train(track: str, steps: int | None = None, device: str = "cpu") -> dict:
                 "lam_causal": lam_causal, "cql_alpha": cql_alpha,
                 "n_transitions": int(len(train_idx)),
                 "trained_at": datetime.now(timezone.utc).isoformat(),
+                # None = trained before seeding existed (or deliberately
+                # unseeded), and therefore NOT bit-reproducible from this code.
+                # A reader must be able to tell those two cases apart.
+                "seed": seed,
                 # Warm-start provenance (empty for a from-scratch fit). Downstream
                 # readers need it to know this policy inherited a Q-function fitted
                 # on far more data than `n_transitions` — the 12-vs-18 ablation uses

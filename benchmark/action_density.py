@@ -123,8 +123,17 @@ def _factor_loglik(logp: np.ndarray, actions: np.ndarray) -> dict:
     return out
 
 
-def evaluate(track: str = "a", epochs: int = 15, seed: int = 0) -> dict:
-    """Fit π_β on train, score the deployed policy vs the clinician on the test split."""
+def evaluate(track: str = "a", epochs: int = 15, seed: int = 0,
+             write: bool = True) -> dict:
+    """Fit π_β on train, score the deployed policy vs the clinician on the test split.
+
+    ``write=False`` returns the result without touching
+    ``results/action_density_track_a.json``. The test suite called this with
+    ``epochs=8`` and no way to opt out of the write, so the canonical artifact —
+    the one the Rule 5 likelihood pair is quoted from — was last written by a
+    REDUCED-budget test run rather than by a real evaluation. ``epochs`` is now
+    recorded in the artifact so a short run is detectable rather than silent.
+    """
     d = D.load_mdp(track)
     stats = N.load(config.MODEL_PATH / (
         "normaliser_stats.json" if track == "a" else "normaliser_stats_track_b.json"))
@@ -166,10 +175,14 @@ def evaluate(track: str = "a", epochs: int = 15, seed: int = 0) -> dict:
         "per_factor_loglik_clinician": _factor_loglik(logp, A_clin),
         "agreement_with_clinician": round(float(np.mean(pi_actions == A_clin)), 4),
         "seed": seed,
+        # Recorded so a reduced-budget run cannot masquerade as the canonical one.
+        "epochs": int(epochs),
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
-    RESULTS.mkdir(parents=True, exist_ok=True)
-    (RESULTS / f"action_density_track_{track}.json").write_text(json.dumps(result, indent=2))
+    if write:
+        RESULTS.mkdir(parents=True, exist_ok=True)
+        (RESULTS / f"action_density_track_{track}.json").write_text(
+            json.dumps(result, indent=2))
     log.info("π_β log-lik | policy=%.4f  clinician=%.4f  Δ=%.4f  (Δ≤0 ⇒ off-support)",
              ll_policy, ll_clin, ll_policy - ll_clin)
     log.info("per-factor (policy): %s", result["per_factor_loglik_policy"])

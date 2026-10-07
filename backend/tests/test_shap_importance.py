@@ -11,6 +11,7 @@ Run:  python -m backend.tests.test_shap_importance
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from backend.pipeline import config
 from backend.scripts import shap_importance as SI
@@ -66,10 +67,12 @@ def test_ranking_sorted_descending():
 
 
 def test_shap_crosscheck_if_available():
-    try:
-        import shap  # noqa: F401
-    except ImportError:
-        raise Skip("shap not installed — in-house estimator is authoritative.")
+    # pytest.importorskip, not the module's own Skip: Skip is a plain Exception, so
+    # pytest reported this as a FAILURE on a machine without the optional `shap`
+    # package rather than as a skip. The in-house estimator is authoritative and
+    # `shap` is a cross-check only, so its absence must not fail the suite.
+    pytest.importorskip(
+        "shap", reason="shap not installed — in-house estimator is authoritative.")
     r = _compute_or_skip(backend="shap")
     assert r.get("spearman_inhouse_vs_shap", -1) > 0.5, \
         f"in-house vs shap Spearman too low: {r.get('spearman_inhouse_vs_shap')}"
@@ -82,7 +85,7 @@ if __name__ == "__main__":
             try:
                 fn()
                 print(f"PASS {name}")
-            except Skip as e:
+            except (Skip, pytest.skip.Exception) as e:
                 print(f"SKIP {name}: {e}")
             except AssertionError as e:
                 failures += 1

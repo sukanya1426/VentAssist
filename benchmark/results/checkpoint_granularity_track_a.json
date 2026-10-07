@@ -1,0 +1,79 @@
+{
+  "track": "a",
+  "n_seeds": 5,
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "question": "Does checkpoint_every=10000 hide a better early checkpoint?",
+  "answer": "Yes. Every seed's true validation optimum is near step 5,750, which a 10,000-step checkpoint interval cannot see. The coarse setting costs ~0.054 validation Q-loss on every training run.",
+  "arms": {
+    "coarse_checkpoint_every_10000": {
+      "selected_steps": [
+        10000,
+        10000,
+        10000,
+        10000,
+        10000
+      ],
+      "best_val_q_per_seed": [
+        1.5413538217544556,
+        1.5491169691085815,
+        1.5453952550888062,
+        1.5240845680236816,
+        1.5099289417266846
+      ],
+      "best_val_q": {
+        "mean": 1.533976,
+        "sd": 0.016509,
+        "ci95": [
+          1.513481,
+          1.554471
+        ],
+        "half_width": 0.020495,
+        "n": 5,
+        "min": 1.509929,
+        "max": 1.549117
+      }
+    },
+    "fine_checkpoint_every_500": {
+      "selected_steps": [
+        6000,
+        5500,
+        6000,
+        6000,
+        5500
+      ],
+      "best_val_q_per_seed": [
+        1.477153,
+        1.48806,
+        1.475799,
+        1.482107,
+        1.477854
+      ],
+      "best_val_q": {
+        "mean": 1.480195,
+        "sd": 0.004989,
+        "ci95": [
+          1.474001,
+          1.486389
+        ],
+        "half_width": 0.006194,
+        "n": 5,
+        "min": 1.475799,
+        "max": 1.48806
+      }
+    }
+  },
+  "cis_separated": true,
+  "notes": {
+    "budget": "total_steps=20000 for the fine arm (every seed early-stopped by 14,000); the coarse arm ran the full 100,000-step budget and still early-stopped near 30,000 \u2014 so the fine arm is not advantaged by a longer run",
+    "patience": "early_stop_patience scaled to 8000 for the fine arm so patience stays 16 checkpoints rather than becoming 40, which would merely run longer",
+    "corroboration": "step ~6,000 is exactly the best-validation step the session handoff reported for the deployed model, reached here independently",
+    "action": "backend/configs/track_a_config.yaml checkpoint_every 10000 -> 500"
+  },
+  "timestamp": "2026-10-07T07:28:46.619643+00:00"
+}

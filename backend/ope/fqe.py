@@ -34,7 +34,18 @@ def _load_policy(track: str):
 
 def fitted_q_evaluation(track: str = "a", K: int = 50, gamma: float = 0.99,
                         batch_size: int = 8192, steps_per_iter: int = 200,
-                        device: str = "cpu", write: bool = True) -> dict:
+                        device: str = "cpu", write: bool = True,
+                        policy=None) -> dict:
+    """Fitted-Q evaluation of a policy under the dataset's reward.
+
+    ``policy`` lets a caller score a model held in memory instead of the
+    deployed checkpoint. ``benchmark/runner.py`` needs this to put a confidence
+    interval on the value estimate across training seeds: without it, scoring a
+    seed would mean writing that seed's weights to
+    ``backend/models/policy_track_a.pt`` — overwriting the deployed, gated
+    policy — which the benchmark ground rules forbid. ``None`` keeps the
+    historical behaviour of loading the deployed checkpoint.
+    """
     d = D.load_mdp(track)
     feats = d["feature_order"]
     nf = "normaliser_stats.json" if track == "a" else "normaliser_stats_track_b.json"
@@ -42,7 +53,16 @@ def fitted_q_evaluation(track: str = "a", K: int = 50, gamma: float = 0.99,
     S = N.transform(d["states"], stats, feats).astype(np.float32)
     NS = N.transform(d["next_states"], stats, feats).astype(np.float32)
 
-    policy, ckpt = _load_policy(track)
+    if policy is None:
+        policy, ckpt = _load_policy(track)
+    else:
+        # The FQE critic below is sized from ckpt, so an in-memory policy has to
+        # supply the same dims. Read them off the model rather than trusting a
+        # caller-passed config, so the critic can never be built at a width the
+        # policy does not actually have.
+        ckpt = {"in_memory": True,
+                "action_dim": int(policy.action_dim),
+                "hidden_dim": int(policy.Q.net[0].out_features)}
     # policy's greedy next action (batched — was a per-row Python loop over ~1M)
     pi_next = policy.act_batch(NS)
 

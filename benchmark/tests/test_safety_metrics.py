@@ -76,7 +76,7 @@ def test_policy_beats_clinician_on_the_real_split():
     """The headline claim: fewer violations than the clinician on identical states."""
     if not (config.MODEL_PATH / "policy_track_a.pt").exists():
         raise Skip("policy_track_a.pt not present.")
-    r = SM.evaluate("a")
+    r = SM.evaluate("a", write=False)
     d = r["delta_policy_minus_clinician"]["any_violation"]
     print(f"  any_violation: policy={r['policy']['any_violation']} "
           f"clinician={r['clinician']['any_violation']} Δ={d:+.4f}")
