@@ -167,6 +167,24 @@ oversight.
   time. It carries **no mortality signal** (Spearman +0.040), which is the
   correct result for a decision confidence and settles how the SRS must
   describe it.
+* **The deployed checkpoint underperforms a retrain by more than seed noise.**
+  Deployed `policy_track_a.pt` scores FQE **1.8787**; five fresh seeds under an
+  identical budget score **2.4823, CI95 [2.3813, 2.5833]** — the deployed value
+  sits 0.50 *below* the lower bound. Same encoding, same 198,050 test
+  transitions, so this is a valid comparison. It is the measured cost of the
+  `state_dict()` aliasing bug (`best_sd = model.state_dict()` returned
+  references to the live weights, so early stopping could never restore the best
+  checkpoint, and the deployed artifact is the step-27,000 weights). Evidence for
+  retraining — **not** a claim the deployed model is unsafe; it still passes 8/8.
+* **The 100,000-step budget is ~10x more than needed, and the checkpoint
+  interval may be hiding a better model.** All five seeds selected step
+  **10,000** — the *first* checkpoint evaluated — then early-stopped near 30,000.
+  Validation loss is already at its minimum by the earliest point we look, so
+  `checkpoint_every: 10000` cannot distinguish step 10,000 from any better step
+  before it. A finer interval is the cheap experiment to run before any retrain.
+* **The lung-protective deviation survives seeds.** Mean ΔTV **−7.45 mL**, CI95
+  **[−8.40, −6.50]** — entirely below zero. The policy systematically asks for
+  lower tidal volumes than the clinician chose, and that is not seed noise.
 
 ### Phase 2 — Build the common arena
 Freeze: their split · their 26-dim state · **their evaluation reward** · their `dist_fqe_config.yml`
