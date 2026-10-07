@@ -98,6 +98,22 @@ async def get_pool() -> asyncpg.Pool:
             _pool = await asyncpg.create_pool(
                 DATABASE_URL, min_size=1, max_size=10,
                 command_timeout=8, timeout=8,
+                # Serverless Postgres (Neon, Supabase) suspends an idle compute
+                # after ~5 minutes and drops the connections with it. asyncpg's
+                # default max_inactive_connection_lifetime is 300s, the same
+                # boundary, so the pool can hand out a connection the server has
+                # already closed — which surfaces as a failed first request after
+                # a quiet spell, exactly when someone is demoing. Recycling at 60s
+                # keeps the pool ahead of the suspend. No effect on a local
+                # Postgres beyond slightly more frequent reconnects.
+                max_inactive_connection_lifetime=60,
+                # Neon's POOLED endpoint (host contains "-pooler") is PgBouncer in
+                # transaction mode, which is incompatible with asyncpg's prepared
+                # statement cache and fails with DuplicatePreparedStatementError
+                # under concurrency. Disabling the cache makes either endpoint
+                # safe; the cost is re-parsing each statement, which is noise next
+                # to an 8s command timeout.
+                statement_cache_size=0,
                 server_settings={"application_name": "VentAssist"},
             )
         except Exception as e:
