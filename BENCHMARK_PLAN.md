@@ -176,15 +176,34 @@ oversight.
   references to the live weights, so early stopping could never restore the best
   checkpoint, and the deployed artifact is the step-27,000 weights). Evidence for
   retraining — **not** a claim the deployed model is unsafe; it still passes 8/8.
-* **The 100,000-step budget is ~10x more than needed, and the checkpoint
-  interval may be hiding a better model.** All five seeds selected step
-  **10,000** — the *first* checkpoint evaluated — then early-stopped near 30,000.
-  Validation loss is already at its minimum by the earliest point we look, so
-  `checkpoint_every: 10000` cannot distinguish step 10,000 from any better step
-  before it. A finer interval is the cheap experiment to run before any retrain.
+* **The checkpoint interval WAS hiding a better model — confirmed and fixed.**
+  All five seeds selected step **10,000**, the *first* checkpoint evaluated, then
+  early-stopped near 30,000: the signature of an interval too coarse to locate
+  the minimum rather than of a genuine optimum. Re-running all five seeds at
+  `checkpoint_every: 500` puts every one of them at step **5,500–6,000**, and
+  lowers best validation Q-loss from **1.5340 [1.5135, 1.5545]** to **1.4802
+  [1.4740, 1.4864]** — non-overlapping CIs. Step ~6,000 is exactly the
+  best-validation step the handoff reported for the deployed model, reached here
+  independently. `backend/configs/track_a_config.yaml` is now
+  `checkpoint_every: 500`; `early_stop_patience` needed no change because
+  patience is counted in steps (`stale += ckpt_every`), not in checkpoints.
+  Track B already used 250 and was never affected. Evidence:
+  `benchmark/results/checkpoint_granularity_track_a.json`.
 * **The lung-protective deviation survives seeds.** Mean ΔTV **−7.45 mL**, CI95
   **[−8.40, −6.50]** — entirely below zero. The policy systematically asks for
   lower tidal volumes than the clinician chose, and that is not seed noise.
+* **IPW makes the policy worse, so `enabled: false` is now an evidenced
+  decision.** Five seeds with IPW on, same seeds and same budget: FQE collapses
+  **2.4823 [2.3813, 2.5833] → 0.2382 [0.0696, 0.4069]**, the action repertoire
+  shrinks **34.8 → 11.8** distinct actions, and validation loss rises **1.5340 →
+  1.8761** — all three separated. The one metric that *improves*,
+  `behaviour_match` 0.5322 → 0.5867, is a trap: hold share rises in step
+  (0.6309 → 0.7027, toward the clinicians' 0.7765) while diversity collapses, so
+  the policy agrees more by mimicking the majority class. Agreement must never be
+  read without value and diversity beside it. Note the scope: this is IPW *as
+  implemented* (weights clipped to [0.1, 8.63], mean 1.000, p99 1.657 — a mild
+  reweighting with a severe effect), and it addresses **measured** confounding
+  only, so it leaves the unmeasured problem untouched either way.
 
 ### Phase 2 — Build the common arena
 Freeze: their split · their 26-dim state · **their evaluation reward** · their `dist_fqe_config.yml`
