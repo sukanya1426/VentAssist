@@ -98,7 +98,12 @@ def _violations(peep, tv, fio2, spo2, weight_kg) -> dict:
     return out
 
 
-def evaluate(track: str = "a") -> dict:
+def evaluate(track: str = "a", write: bool = True) -> dict:
+    """Policy-vs-clinician violation rates on the held-out split.
+
+    ``write=False`` skips the artifact, so a test can exercise this without
+    overwriting the canonical result the report cites.
+    """
     d = D.load_mdp(track)
     stats = N.load(config.MODEL_PATH / (
         "normaliser_stats.json" if track == "a" else "normaliser_stats_track_b.json"))
@@ -145,8 +150,10 @@ def evaluate(track: str = "a") -> dict:
         },
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
-    RESULTS.mkdir(parents=True, exist_ok=True)
-    (RESULTS / f"safety_metrics_track_{track}.json").write_text(json.dumps(result, indent=2))
+    if write:
+        RESULTS.mkdir(parents=True, exist_ok=True)
+        (RESULTS / f"safety_metrics_track_{track}.json").write_text(
+            json.dumps(result, indent=2))
 
     log.info("Safety violation rates on %d held-out transitions (policy vs clinician):", len(test))
     for k in policy_v:

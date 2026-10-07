@@ -189,6 +189,17 @@ oversight.
   patience is counted in steps (`stale += ckpt_every`), not in checkpoints.
   Track B already used 250 and was never affected. Evidence:
   `benchmark/results/checkpoint_granularity_track_a.json`.
+* **The canonical `action_density` artifact was a reduced test run.** Both
+  `action_density.evaluate` and `safety_metrics.evaluate` wrote unconditionally
+  and `test_action_density` called the first with `epochs=8` against a default of
+  15, so the artifact the Rule 5 likelihood pair is quoted from was last written
+  by the test suite. Regenerated at 15 epochs the Δ is **+0.0226**, not the
+  +0.0519 that was committed — same sign (the policy is on-support, which is what
+  Rule 5 asks) but **the margin was overstated by more than 2×**. Both entry
+  points now take `write`, their tests pass `write=False`, `action_density`
+  records `epochs`, and `benchmark/tests/test_artifacts_not_clobbered.py` guards
+  it. Ground rule 4 of this document should be read as requiring a `write` flag
+  on every entry point that persists a result.
 * **The lung-protective deviation survives seeds.** Mean ΔTV **−7.45 mL**, CI95
   **[−8.40, −6.50]** — entirely below zero. The policy systematically asks for
   lower tidal volumes than the clinician chose, and that is not seed noise.

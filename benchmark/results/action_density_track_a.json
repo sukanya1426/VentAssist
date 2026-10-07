@@ -2,22 +2,23 @@
   "track": "a",
   "n_test": 198050,
   "n_transitions": 992100,
-  "loglik_policy": -1.0441,
-  "loglik_clinician": -1.096,
-  "delta_policy_minus_clinician": 0.0519,
-  "perplexity_policy": 2.84,
-  "perplexity_clinician": 2.99,
+  "loglik_policy": -1.0631,
+  "loglik_clinician": -1.0856,
+  "delta_policy_minus_clinician": 0.0226,
+  "perplexity_policy": 2.9,
+  "perplexity_clinician": 2.96,
   "per_factor_loglik_policy": {
-    "delta_PEEP": -0.2034,
-    "delta_TV": -0.6203,
-    "delta_FiO2": -0.2182
+    "delta_PEEP": -0.2075,
+    "delta_TV": -0.6342,
+    "delta_FiO2": -0.2185
   },
   "per_factor_loglik_clinician": {
-    "delta_PEEP": -0.2541,
-    "delta_TV": -0.6397,
-    "delta_FiO2": -0.2368
+    "delta_PEEP": -0.2442,
+    "delta_TV": -0.6392,
+    "delta_FiO2": -0.2361
   },
   "agreement_with_clinician": 0.5731,
   "seed": 0,
-  "timestamp": "2026-10-07T06:21:39.015394+00:00"
+  "epochs": 15,
+  "timestamp": "2026-10-07T08:32:43.544717+00:00"
 }

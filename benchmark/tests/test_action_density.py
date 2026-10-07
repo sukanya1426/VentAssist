@@ -61,7 +61,7 @@ def test_policy_is_on_support_vs_clinician():
     """The headline Rule-5 gate: Δ = loglik(policy) − loglik(clinician) must be > 0."""
     if not (config.MODEL_PATH / "policy_track_a.pt").exists():
         raise Skip("policy_track_a.pt not present.")
-    r = AD.evaluate("a", epochs=8)
+    r = AD.evaluate("a", epochs=8, write=False)
     d = r["delta_policy_minus_clinician"]
     print(f"  loglik policy={r['loglik_policy']} clinician={r['loglik_clinician']} Δ={d:+.4f}")
     assert d > 0, ("policy acts OFF the clinician's support (Δ<=0) — an FQE gain here "
