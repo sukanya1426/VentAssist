@@ -1,0 +1,239 @@
+{
+  "track": "a",
+  "n_seeds": 5,
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "budget": {
+    "total_steps": 100000,
+    "checkpoint_every": 10000,
+    "early_stop_patience": 20000,
+    "batch_size": 256,
+    "lr": 0.0003,
+    "hidden_dim": 256,
+    "gamma": 0.99,
+    "tau": 0.8,
+    "beta": 2.0,
+    "lam_causal": 2.0,
+    "cql_alpha": 0.5,
+    "w_outcome": 0.25,
+    "ipw_enabled": true
+  },
+  "budget_identical_across_seeds": true,
+  "arm": "ipw",
+  "n_train_transitions": 694383,
+  "n_test_transitions": 198050,
+  "n_transitions": 992100,
+  "per_seed": [
+    {
+      "seed": 0,
+      "best_val_q": 1.9250890016555786,
+      "selected_step": 10000,
+      "train_seconds": 156.4,
+      "behaviour_match": 0.6014996213077506,
+      "hold_share": 0.7245392577631911,
+      "n_distinct_actions": 11,
+      "mean_dPEEP": 0.010815450643776824,
+      "mean_dTV": -5.471976773542035,
+      "mean_dFiO2": -0.014144912900782632,
+      "safety_any_violation": 0.3288,
+      "safety_volutrauma": 0.1246,
+      "fqe_V_hat": 0.1111
+    },
+    {
+      "seed": 1,
+      "best_val_q": 1.9071615934371948,
+      "selected_step": 10000,
+      "train_seconds": 168.0,
+      "behaviour_match": 0.615284019187074,
+      "hold_share": 0.7425751072961373,
+      "n_distinct_actions": 12,
+      "mean_dPEEP": 0.018520575612219137,
+      "mean_dTV": -6.75877303711184,
+      "mean_dFiO2": -0.009235546579146681,
+      "safety_any_violation": 0.3494,
+      "safety_volutrauma": 0.1221,
+      "fqe_V_hat": 0.276
+    },
+    {
+      "seed": 2,
+      "best_val_q": 1.8745437860488892,
+      "selected_step": 20000,
+      "train_seconds": 197.2,
+      "behaviour_match": 0.6035445594546832,
+      "hold_share": 0.724645291593032,
+      "n_distinct_actions": 13,
+      "mean_dPEEP": 0.020429184549356223,
+      "mean_dTV": -5.9481191618278215,
+      "mean_dFiO2": -0.01280181772279727,
+      "safety_any_violation": 0.3335,
+      "safety_volutrauma": 0.1238,
+      "fqe_V_hat": 0.1464
+    },
+    {
+      "seed": 3,
+      "best_val_q": 1.8384552001953125,
+      "selected_step": 10000,
+      "train_seconds": 178.8,
+      "behaviour_match": 0.5667962635698056,
+      "hold_share": 0.6750971976773542,
+      "n_distinct_actions": 11,
+      "mean_dPEEP": 0.02163090128755365,
+      "mean_dTV": -6.915930320626105,
+      "mean_dFiO2": -0.01594748800807877,
+      "safety_any_violation": 0.3178,
+      "safety_volutrauma": 0.122,
+      "fqe_V_hat": 0.2036
+    },
+    {
+      "seed": 4,
+      "best_val_q": 1.8351131677627563,
+      "selected_step": 10000,
+      "train_seconds": 184.8,
+      "behaviour_match": 0.5464428174703357,
+      "hold_share": 0.6466447866700328,
+      "n_distinct_actions": 12,
+      "mean_dPEEP": 0.02286291340570563,
+      "mean_dTV": -7.89005301691492,
+      "mean_dFiO2": -0.016023226457965157,
+      "safety_any_violation": 0.3129,
+      "safety_volutrauma": 0.1203,
+      "fqe_V_hat": 0.4541
+    }
+  ],
+  "aggregate": {
+    "best_val_q": {
+      "mean": 1.876073,
+      "sd": 0.0402,
+      "ci95": [
+        1.826165,
+        1.92598
+      ],
+      "half_width": 0.049907,
+      "n": 5,
+      "min": 1.835113,
+      "max": 1.925089
+    },
+    "behaviour_match": {
+      "mean": 0.586713,
+      "sd": 0.028882,
+      "ci95": [
+        0.550858,
+        0.622569
+      ],
+      "half_width": 0.035856,
+      "n": 5,
+      "min": 0.546443,
+      "max": 0.615284
+    },
+    "hold_share": {
+      "mean": 0.7027,
+      "sd": 0.040164,
+      "ci95": [
+        0.652838,
+        0.752563
+      ],
+      "half_width": 0.049863,
+      "n": 5,
+      "min": 0.646645,
+      "max": 0.742575
+    },
+    "n_distinct_actions": {
+      "mean": 11.8,
+      "sd": 0.83666,
+      "ci95": [
+        10.761316,
+        12.838684
+      ],
+      "half_width": 1.038684,
+      "n": 5,
+      "min": 11.0,
+      "max": 13.0
+    },
+    "mean_dPEEP": {
+      "mean": 0.018852,
+      "sd": 0.00477,
+      "ci95": [
+        0.012931,
+        0.024773
+      ],
+      "half_width": 0.005921,
+      "n": 5,
+      "min": 0.010815,
+      "max": 0.022863
+    },
+    "mean_dTV": {
+      "mean": -6.59697,
+      "sd": 0.933622,
+      "ci95": [
+        -7.756029,
+        -5.437912
+      ],
+      "half_width": 1.159058,
+      "n": 5,
+      "min": -7.890053,
+      "max": -5.471977
+    },
+    "mean_dFiO2": {
+      "mean": -0.013631,
+      "sd": 0.0028,
+      "ci95": [
+        -0.017107,
+        -0.010154
+      ],
+      "half_width": 0.003476,
+      "n": 5,
+      "min": -0.016023,
+      "max": -0.009236
+    },
+    "safety_any_violation": {
+      "mean": 0.32848,
+      "sd": 0.014316,
+      "ci95": [
+        0.310708,
+        0.346252
+      ],
+      "half_width": 0.017772,
+      "n": 5,
+      "min": 0.3129,
+      "max": 0.3494
+    },
+    "safety_volutrauma": {
+      "mean": 0.12256,
+      "sd": 0.001683,
+      "ci95": [
+        0.12047,
+        0.12465
+      ],
+      "half_width": 0.00209,
+      "n": 5,
+      "min": 0.1203,
+      "max": 0.1246
+    },
+    "fqe_V_hat": {
+      "mean": 0.23824,
+      "sd": 0.13585,
+      "ci95": [
+        0.069587,
+        0.406893
+      ],
+      "half_width": 0.168653,
+      "n": 5,
+      "min": 0.1111,
+      "max": 0.4541
+    }
+  },
+  "notes": {
+    "encoding": "training encoding (normaliser.transform), which is what the policy was fitted on \u2014 not the serving encoding",
+    "fqe": "scored on the in-memory model so no seed overwrites the deployed checkpoint",
+    "action_likelihood": "not per-seed: the clinician density model is a property of the behaviour policy, identical across our seeds \u2014 see benchmark/action_density.py",
+    "ci": "two-sided 95% from the t-distribution (df = n-1), not a normal approximation, which would understate the interval at n=5",
+    "deployed_model": "untouched; seed checkpoints are in results/seeds/ and are explicitly not deployment candidates",
+    "reproducibility": "each seed fixes torch weight init AND the minibatch stream; the deployed checkpoint predates seeding and is not bit-reproducible"
+  },
+  "timestamp": "2026-10-07T07:21:13.745832+00:00"
+}
