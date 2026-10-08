@@ -25,8 +25,18 @@ export function ValidationLink({ track = "a" }: { track?: string }) {
     return () => { live = false; };
   }, [track]);
 
-  // A missing evaluation record must not break the clinical view.
-  if (failed || !data || (!data.estimators.length && !data.safety.length)) return null;
+  // A missing evaluation record must not break the clinical view — but "nothing to
+  // say about this track" is NOT the same as "no record exists", and conflating them
+  // is what made this card disappear on Track B. Track B has no FQE/DFQE/NWE of its
+  // own (its checkpoint is Track A's weights with an untouched [I | 0] adapter), so
+  // both arrays are legitimately empty while the deployed-checkpoint provenance and
+  // the waveform ablation still have something real to report. Hide only when the
+  // endpoint genuinely gave us nothing.
+  const hasContent = Boolean(
+    data && (data.estimators.length || data.safety.length ||
+             data.waveform_ablation || data.model),
+  );
+  if (failed || !data || !hasContent) return null;
 
   return (
     <Link
@@ -44,8 +54,10 @@ export function ValidationLink({ track = "a" }: { track?: string }) {
             {data.cohort_stays
               ? `${data.cohort_stays.toLocaleString()} held-out ICU stays`
               : "Held-out offline evaluation"}
-            {" · "}{data.estimators.length} estimator
-            {data.estimators.length === 1 ? "" : "s"} vs the clinician baseline
+            {data.estimators.length > 0
+              ? ` · ${data.estimators.length} estimator${
+                  data.estimators.length === 1 ? "" : "s"} vs the clinician baseline`
+              : " · deployed checkpoint provenance and the waveform ablation"}
           </p>
         </div>
       </div>

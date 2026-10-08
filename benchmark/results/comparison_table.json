@@ -1,0 +1,767 @@
+{
+  "title": "VentAssist vs IntelliLung \u2014 comparison table",
+  "scope": {
+    "arena": "their reward, ported faithfully (benchmark/rewards_intellilung.py), trained and scored inside the VentAssist MDP",
+    "not_the_arena": "their 26-dim state / their split / their frozen DistFQE (Phase 2) \u2014 blocked: they ship no weights and no data, and their MIMIC pipeline needs a populated Postgres `mimic` DB",
+    "their_reward_verified_against": "algo_src/reward/range.py (full repo, not a port)"
+  },
+  "table_a_reward_head_to_head": {
+    "arena": "VentAssist MDP (992,100 transitions, 1 h, 125 discrete delta actions)",
+    "controlled": "identical architecture, identical MDP, identical budget; ONLY the reward differs",
+    "layer1_structural": {
+      "n_sampled": 3000,
+      "intellilung": {
+        "mean_spread": 0.0,
+        "max_spread": 0.0,
+        "pct_transitions_with_zero_spread": 100.0
+      },
+      "ventassist": {
+        "mean_spread": 2.025,
+        "max_spread": 4.4,
+        "pct_transitions_with_zero_spread": 0.0
+      }
+    },
+    "layer2_multiseed": {
+      "seeds": 5,
+      "steps": 30000,
+      "paired_on_seed": true,
+      "metrics": {
+        "q_spread_max_minus_min": {
+          "intellilung": {
+            "mean": 9.11572,
+            "sd": 0.730132,
+            "ci95": [
+              8.209287,
+              10.022153
+            ],
+            "half_width": 0.906433,
+            "n": 5,
+            "min": 8.5716,
+            "max": 10.3713
+          },
+          "ventassist": {
+            "mean": 14.96624,
+            "sd": 0.28329,
+            "ci95": [
+              14.614545,
+              15.317935
+            ],
+            "half_width": 0.351695,
+            "n": 5,
+            "min": 14.4991,
+            "max": 15.2602
+          },
+          "paired_delta": {
+            "mean": 5.85052,
+            "sd": 0.557602,
+            "ci95": [
+              5.158277,
+              6.542763
+            ],
+            "half_width": 0.692243,
+            "n": 5,
+            "min": 4.8889,
+            "max": 6.2638
+          },
+          "delta_ci_excludes_zero": true,
+          "cross_arm_comparable": false,
+          "caveat": "Denominated in Q units, which scale with reward magnitude (theirs [-1, 0], ours ~[-43, +42]). Valid as a WITHIN-arm diagnostic; NOT a cross-arm comparison. The plan's '1.7x sharper Q margin' headline is not scale-invariant and should not be used."
+        },
+        "q_top2_margin": {
+          "intellilung": {
+            "mean": 0.35382,
+            "sd": 0.034369,
+            "ci95": [
+              0.311152,
+              0.396488
+            ],
+            "half_width": 0.042668,
+            "n": 5,
+            "min": 0.3317,
+            "max": 0.4147
+          },
+          "ventassist": {
+            "mean": 0.41152,
+            "sd": 0.022482,
+            "ci95": [
+              0.383609,
+              0.439431
+            ],
+            "half_width": 0.027911,
+            "n": 5,
+            "min": 0.3921,
+            "max": 0.4488
+          },
+          "paired_delta": {
+            "mean": 0.0577,
+            "sd": 0.015686,
+            "ci95": [
+              0.038226,
+              0.077174
+            ],
+            "half_width": 0.019474,
+            "n": 5,
+            "min": 0.0341,
+            "max": 0.0778
+          },
+          "delta_ci_excludes_zero": true,
+          "cross_arm_comparable": false,
+          "caveat": "Denominated in Q units, which scale with reward magnitude (theirs [-1, 0], ours ~[-43, +42]). Valid as a WITHIN-arm diagnostic; NOT a cross-arm comparison. The plan's '1.7x sharper Q margin' headline is not scale-invariant and should not be used."
+        },
+        "distinct_actions_used": {
+          "intellilung": {
+            "mean": 14.6,
+            "sd": 2.607681,
+            "ci95": [
+              11.362656,
+              17.837344
+            ],
+            "half_width": 3.237344,
+            "n": 5,
+            "min": 11.0,
+            "max": 17.0
+          },
+          "ventassist": {
+            "mean": 29.8,
+            "sd": 1.923538,
+            "ci95": [
+              27.411995,
+              32.188005
+            ],
+            "half_width": 2.388005,
+            "n": 5,
+            "min": 28.0,
+            "max": 33.0
+          },
+          "paired_delta": {
+            "mean": 15.2,
+            "sd": 2.167948,
+            "ci95": [
+              12.508568,
+              17.891432
+            ],
+            "half_width": 2.691432,
+            "n": 5,
+            "min": 13.0,
+            "max": 18.0
+          },
+          "delta_ci_excludes_zero": true,
+          "cross_arm_comparable": true
+        },
+        "hold_share": {
+          "intellilung": {
+            "mean": 0.94666,
+            "sd": 0.005183,
+            "ci95": [
+              0.940226,
+              0.953094
+            ],
+            "half_width": 0.006434,
+            "n": 5,
+            "min": 0.9379,
+            "max": 0.9509
+          },
+          "ventassist": {
+            "mean": 0.60668,
+            "sd": 0.011928,
+            "ci95": [
+              0.591872,
+              0.621488
+            ],
+            "half_width": 0.014808,
+            "n": 5,
+            "min": 0.5932,
+            "max": 0.6223
+          },
+          "paired_delta": {
+            "mean": -0.33998,
+            "sd": 0.016099,
+            "ci95": [
+              -0.359966,
+              -0.319994
+            ],
+            "half_width": 0.019986,
+            "n": 5,
+            "min": -0.3562,
+            "max": -0.3156
+          },
+          "delta_ci_excludes_zero": true,
+          "cross_arm_comparable": true
+        },
+        "agreement_with_clinician": {
+          "intellilung": {
+            "mean": 0.74756,
+            "sd": 0.003113,
+            "ci95": [
+              0.743695,
+              0.751425
+            ],
+            "half_width": 0.003865,
+            "n": 5,
+            "min": 0.7426,
+            "max": 0.7508
+          },
+          "ventassist": {
+            "mean": 0.51382,
+            "sd": 0.009373,
+            "ci95": [
+              0.502183,
+              0.525457
+            ],
+            "half_width": 0.011637,
+            "n": 5,
+            "min": 0.5034,
+            "max": 0.527
+          },
+          "paired_delta": {
+            "mean": -0.23374,
+            "sd": 0.012425,
+            "ci95": [
+              -0.249165,
+              -0.218315
+            ],
+            "half_width": 0.015425,
+            "n": 5,
+            "min": -0.2474,
+            "max": -0.2156
+          },
+          "delta_ci_excludes_zero": true,
+          "cross_arm_comparable": true
+        },
+        "battery_passed_n": {
+          "intellilung": {
+            "mean": 3.2,
+            "sd": 1.095445,
+            "ci95": [
+              1.840043,
+              4.559957
+            ],
+            "half_width": 1.359957,
+            "n": 5,
+            "min": 2.0,
+            "max": 5.0
+          },
+          "ventassist": {
+            "mean": 6.6,
+            "sd": 0.547723,
+            "ci95": [
+              5.920022,
+              7.279978
+            ],
+            "half_width": 0.679978,
+            "n": 5,
+            "min": 6.0,
+            "max": 7.0
+          },
+          "paired_delta": {
+            "mean": 3.4,
+            "sd": 1.516575,
+            "ci95": [
+              1.517225,
+              5.282775
+            ],
+            "half_width": 1.882775,
+            "n": 5,
+            "min": 1.0,
+            "max": 5.0
+          },
+          "delta_ci_excludes_zero": true,
+          "cross_arm_comparable": true
+        },
+        "best_val_q": {
+          "intellilung": {
+            "mean": 0.33936,
+            "sd": 0.019223,
+            "ci95": [
+              0.315496,
+              0.363224
+            ],
+            "half_width": 0.023864,
+            "n": 5,
+            "min": 0.312,
+            "max": 0.3608
+          },
+          "ventassist": {
+            "mean": 1.48022,
+            "sd": 0.004992,
+            "ci95": [
+              1.474023,
+              1.486417
+            ],
+            "half_width": 0.006197,
+            "n": 5,
+            "min": 1.4758,
+            "max": 1.4881
+          },
+          "paired_delta": {
+            "mean": 1.14086,
+            "sd": 0.020391,
+            "ci95": [
+              1.115545,
+              1.166175
+            ],
+            "half_width": 0.025315,
+            "n": 5,
+            "min": 1.1213,
+            "max": 1.1659
+          },
+          "delta_ci_excludes_zero": true,
+          "cross_arm_comparable": false,
+          "caveat": "Denominated in Q units, which scale with reward magnitude (theirs [-1, 0], ours ~[-43, +42]). Valid as a WITHIN-arm diagnostic; NOT a cross-arm comparison. The plan's '1.7x sharper Q margin' headline is not scale-invariant and should not be used."
+        }
+      },
+      "scale_free_metrics": [
+        "distinct_actions_used",
+        "hold_share",
+        "agreement_with_clinician",
+        "battery_passed_n"
+      ],
+      "scale_dependent_metrics": [
+        "q_spread_max_minus_min",
+        "q_top2_margin",
+        "best_val_q"
+      ],
+      "scale_caveat": "Denominated in Q units, which scale with reward magnitude (theirs [-1, 0], ours ~[-43, +42]). Valid as a WITHIN-arm diagnostic; NOT a cross-arm comparison. The plan's '1.7x sharper Q margin' headline is not scale-invariant and should not be used.",
+      "battery_pass_rate": {
+        "intellilung": {
+          "stable": 1.0,
+          "hypoxaemic": 0.0,
+          "hyperoxic": 0.8,
+          "hypercapnic": 0.2,
+          "hypocapnic": 0.0,
+          "high_peep": 0.0,
+          "low_peep": 0.8,
+          "volutrauma": 0.4
+        },
+        "ventassist": {
+          "stable": 1.0,
+          "hypoxaemic": 0.6,
+          "hyperoxic": 1.0,
+          "hypercapnic": 1.0,
+          "hypocapnic": 1.0,
+          "high_peep": 0.0,
+          "low_peep": 1.0,
+          "volutrauma": 1.0
+        }
+      }
+    },
+    "battery_honest_negatives": {
+      "never_fixed_by_either_reward": [
+        "high_peep"
+      ],
+      "unreliable_under_our_reward": [
+        "hypoxaemic"
+      ],
+      "note": "The single-seed Layer 2 result reported 8/8 for our reward. Across 5 seeds it is 6.6/8 [5.920022, 7.279978]. The 8/8 was a lucky seed and must not be quoted. Report the per-case rates."
+    }
+  },
+  "table_b_agreement_trap": {
+    "rule": "Never report clinician agreement without a value estimate and an action-diversity figure beside it.",
+    "why": "Clinicians hold 77.65 % of the time, so any policy that holds more scores better on agreement. Agreement improves as the policy gets worse.",
+    "generalises": "IntelliLung's own Rule 5, extended from likelihood to agreement",
+    "observations": [
+      {
+        "case": "IntelliLung reward vs ours (paired, 5 seeds)",
+        "agreement_moves": "0.7476 (theirs) vs 0.5138 (ours)",
+        "but": "distinct actions 14.6 vs 29.8; battery 3.2/8 vs 6.6/8"
+      },
+      {
+        "case": "IPW on vs off (5 seeds each, matched budget)",
+        "agreement_moves": "0.5867 (on) vs 0.5322 (off)",
+        "but": "FQE 0.2382 vs 2.4823; distinct actions 11.8 vs 34.8"
+      },
+      {
+        "case": "Pressure-control action masking",
+        "agreement_moves": "confidence ROSE 0.671 -> 0.687 on preset F",
+        "but": "it rose because the policy's own preferred action (cut TV) had been suppressed; confidence is computed over allowed actions only, so removing 100 competitors makes a forced hold look sharper (SUMMARY \u00a715.11 B2)"
+      }
+    ]
+  },
+  "table_c_ventassist_vs_clinician": {
+    "rule5_triple": [
+      {
+        "policy": "deployed_policy_track_a.pt",
+        "source": "behaviour_compare + fqe_track_a (serving encoding)",
+        "agreement": 0.5699,
+        "value": 1.8787,
+        "diversity": null,
+        "hold_share": 0.6894,
+        "hold_share_clinician": 0.7765
+      },
+      {
+        "policy": "5_fresh_seeds_checkpoint_every_500",
+        "source": "runner_track_a_ckpt500 (training encoding)",
+        "agreement": 0.513788,
+        "value": 2.0016,
+        "diversity": 29.8
+      },
+      {
+        "policy": "5_fresh_seeds_checkpoint_every_10000",
+        "source": "runner_track_a (training encoding)",
+        "agreement": 0.53221,
+        "value": 2.48234,
+        "diversity": 34.8
+      }
+    ],
+    "rule5_partial": "Item 7 of Phase 1 is PARTIAL by design. The clinician action log-likelihood is a property of the behaviour policy, not of our training seeds, so it is identical across seeds and is computed once in action_density.py. The triple is therefore assembled from two artifacts, not one. Stated here so a reviewer does not find it unaided.",
+    "action_likelihood_rule5_gate": {
+      "policy": -1.0631,
+      "clinician": -1.0856,
+      "delta_policy_minus_clinician": 0.0226,
+      "epochs": 15,
+      "reading": "Delta > 0 means the policy's actions are ON-SUPPORT under the clinician density model \u2014 not extrapolation. The sign is what Rule 5 asks for; the margin is small.",
+      "policy_described": "deployed_policy_track_a.pt"
+    },
+    "safety_violations": {
+      "policy": {
+        "volutrauma_tv_gt_8ml_per_kg": 0.1225,
+        "peep_gt_15": 0.0207,
+        "fio2_gt_0.8": 0.0414,
+        "needless_hyperoxia_fio2_ge_0.95_and_spo2_ge_96": 0.0006,
+        "peep_below_ardsnet_min_for_fio2": 0.2471,
+        "any_violation": 0.3599,
+        "driving_pressure_gt_15": null
+      },
+      "clinician": {
+        "volutrauma_tv_gt_8ml_per_kg": 0.1338,
+        "peep_gt_15": 0.0243,
+        "fio2_gt_0.8": 0.0489,
+        "needless_hyperoxia_fio2_ge_0.95_and_spo2_ge_96": 0.0143,
+        "peep_below_ardsnet_min_for_fio2": 0.2659,
+        "any_violation": 0.3872,
+        "driving_pressure_gt_15": null
+      },
+      "delta": {
+        "volutrauma_tv_gt_8ml_per_kg": -0.0113,
+        "peep_gt_15": -0.0036,
+        "fio2_gt_0.8": -0.0075,
+        "needless_hyperoxia_fio2_ge_0.95_and_spo2_ge_96": -0.0137,
+        "peep_below_ardsnet_min_for_fio2": -0.0188,
+        "any_violation": -0.0273,
+        "driving_pressure_gt_15": null
+      },
+      "reading": "The policy violates less often on every rule measured.",
+      "policy_described": "deployed_policy_track_a.pt",
+      "caveat": {
+        "driving_pressure_gt_15": "requires airway-pressure waveform (not available) \u2014 not imputed",
+        "encoding": "policy scored with transform_inference (serving encoding)"
+      }
+    },
+    "checkpoint_selection": {
+      "question": "Does the checkpoint_every=500 fix produce a model that should replace the deployed one?",
+      "answer_short": "No, not on this evidence.",
+      "deployed_fqe": 1.8787,
+      "arms": {
+        "5_fresh_seeds_checkpoint_every_10000": {
+          "selected_steps": [
+            10000
+          ],
+          "best_val_q": {
+            "mean": 1.533976,
+            "sd": 0.016509,
+            "ci95": [
+              1.513481,
+              1.554471
+            ],
+            "half_width": 0.020495,
+            "n": 5,
+            "min": 1.509929,
+            "max": 1.549117
+          },
+          "fqe_V_hat": {
+            "mean": 2.48234,
+            "sd": 0.081361,
+            "ci95": [
+              2.381333,
+              2.583347
+            ],
+            "half_width": 0.101007,
+            "n": 5,
+            "min": 2.4165,
+            "max": 2.5743
+          },
+          "deployed_inside_ci": false
+        },
+        "5_fresh_seeds_checkpoint_every_500": {
+          "selected_steps": [
+            5500,
+            6000
+          ],
+          "best_val_q": {
+            "mean": 1.480194,
+            "sd": 0.004989,
+            "ci95": [
+              1.474001,
+              1.486388
+            ],
+            "half_width": 0.006194,
+            "n": 5,
+            "min": 1.475799,
+            "max": 1.48806
+          },
+          "fqe_V_hat": {
+            "mean": 2.0016,
+            "sd": 0.517349,
+            "ci95": [
+              1.35933,
+              2.64387
+            ],
+            "half_width": 0.64227,
+            "n": 5,
+            "min": 1.1901,
+            "max": 2.5176
+          },
+          "deployed_inside_ci": true
+        }
+      },
+      "finding": "Validation Q-loss and FQE disagree about which checkpoint is best, and the finer interval moved selection AWAY from the FQE optimum. Q-loss improves reproducibly and with non-overlapping CIs (1.5340 -> 1.4802), but FQE does not follow: 2.4823 -> 2.0016, and the interval widens 0.1010 -> 0.6423. By selected step the value estimate is NON-MONOTONIC and peaks near 10,000: ~5,750 -> 2.0016, ~10,000 -> 2.4823, ~27,000 (deployed) -> 1.8787.",
+      "consequence_for_the_retrain_claim": "The deployed checkpoint sits 0.50 BELOW the coarse arm's lower bound, which is the basis of the SUMMARY \u00a715.11 C6 claim that it underperforms a retrain by more than seed noise. Against the arm trained with the FIXED config it sits INSIDE the interval. So that claim holds only against the coarse arm, and the case for replacing the deployed artifact is NOT made. Do not deploy on this evidence.",
+      "clinical_battery_vs_selected_step": [
+        {
+          "family": "fine_checkpoint_every_500",
+          "approx_selected_step": 5750,
+          "battery_passed_mean": 6.6,
+          "high_peep_pass_rate": 0.0
+        },
+        {
+          "family": "coarse_checkpoint_every_10000",
+          "approx_selected_step": 10000,
+          "battery_passed_mean": 7.2,
+          "high_peep_pass_rate": 0.4
+        },
+        {
+          "family": "deployed",
+          "approx_selected_step": 27000,
+          "battery_passed_mean": 8.0,
+          "high_peep_pass_rate": 1.0
+        }
+      ],
+      "cases_learned_late": [
+        "high_peep",
+        "hypoxaemic"
+      ],
+      "third_criterion": "A THIRD criterion disagrees with both, and it is the one the deploy gate enforces: the 8-case clinical battery improves monotonically with selected step \u2014 6.60/8 at ~5,750, 7.20/8 at ~10,000, 8.00/8 for the deployed ~27,000 model. `high_peep` ('PEEP is 18, lower it') is a safety reflex acquired LATE: 0 of 5 seeds have it at ~5,750, 2 of 5 at ~10,000, and the deployed model has it. Selecting on validation Q-loss therefore selects a model that has not yet learned a clinical safety reflex the deployed one has. Evidence: benchmark/checkpoint_battery.py.",
+      "what_does_hold": "Two things improve in the fine arm and are worth keeping: validation Q-loss (separated CIs) and the safety violation rate (0.3375 -> 0.3128, also separated). The lung-protective dTV bias excludes zero in BOTH arms, so it does not depend on the selection rule."
+    },
+    "model_free_leads": {
+      "note": "These two do not depend on our reward or our learned dynamics, so they are the results to lead with.",
+      "lower_tidal_volumes": {
+        "per_seed_mean_dTV_mL": {
+          "mean": -7.44928,
+          "sd": 0.76699,
+          "ci95": [
+            -8.401472,
+            -6.497089
+          ],
+          "half_width": 0.952192,
+          "n": 5,
+          "min": -8.333123,
+          "max": -6.379955
+        },
+        "serving_encoding_mean_dTV_mL": -6.0462,
+        "excludes_zero": true,
+        "direction": "lung-protective"
+      },
+      "more_stable_hour_to_hour": {
+        "churn_policy": 0.1465,
+        "churn_clinician": 0.4073,
+        "n_consecutive_pairs": 193258,
+        "reversals_policy": {
+          "delta_PEEP": 0.0003,
+          "delta_TV": 0.0033,
+          "delta_FiO2": 0.0009
+        },
+        "reversals_clinician": {
+          "delta_PEEP": 0.0057,
+          "delta_TV": 0.0082,
+          "delta_FiO2": 0.0033
+        },
+        "caveat": null
+      }
+    },
+    "model_based_rollout_safety": {
+      "warning": "MODEL-BASED. These come from NWE rollouts under our LEARNED dynamics over T=12 steps from n_starts=400, and the hypoxaemia row rests on only 44 episodes. They are far weaker evidence than the 198,050-transition model-free numbers in C3/C4 and must never be quoted beside them without this distinction.",
+      "n_starts": 400,
+      "horizon_steps": 12,
+      "nwe_V_hat": -0.4141,
+      "policy": {
+        "pct_terminal_spo2_ge95": 0.99,
+        "mean_delta_spo2_start_lt95": 5.3132,
+        "n_episodes_start_lt95": 44,
+        "pct_aggressive_steps": 0.011,
+        "mean_asynchrony_rate": null
+      },
+      "clinician": {
+        "pct_terminal_spo2_ge95": 0.87,
+        "mean_delta_spo2_start_lt95": 3.2955,
+        "n_episodes_start_lt95": 44,
+        "pct_aggressive_steps": 0.0647,
+        "mean_asynchrony_rate": null
+      },
+      "policy_described": "deployed_policy_track_a.pt"
+    },
+    "confidence": {
+      "ece": 0.04058,
+      "spearman_vs_agreement": 0.28882,
+      "mce": 0.69736,
+      "inverts_at_the_top": true,
+      "quote_which": "monotonicity (Spearman), not ECE \u2014 the achievable range is [0.3, 0.8491], so a near-zero ECE is structurally impossible",
+      "carries_no_mortality_signal": 0.03951
+    }
+  },
+  "table_d_capabilities": [
+    {
+      "claim": "Reward carries a direct action signal",
+      "ventassist": "yes \u2014 action_cost(a) + lam_causal * causal_bonus(s, a)",
+      "intellilung": "NO \u2014 the action is absent from their entire reward INTERFACE",
+      "verified": true,
+      "source": "algo_src/reward/base.py:7 \u2014 the abstract signature is `__call__(self, dataset, terminated, pre_process_configs, **kwargs)`, with no action parameter. All five implementations inherit it (range.py, ventilator_free_days.py x2, mortality.py, stacking.py) and `grep -n action algo_src/reward/*.py` returns NOTHING. So this is not a property of the reward they happened to choose \u2014 their abstraction cannot express an action-dependent reward at all."
+    },
+    {
+      "claim": "The WHOLE composite reward is action-independent, not just RangeReward",
+      "ventassist": "n/a",
+      "intellilung": "yes \u2014 both components are functions of state/outcome columns",
+      "verified": true,
+      "source": "Their configured reward is AddRewards([RangeReward, VFDEachStep]) (algo_src/configs/pre_processing_configs.yaml). RangeReward reads next_states only; VFDEachStep reads pause_until_next, mv_duration and daemo_discharge (algo_src/reward/ventilator_free_days.py:57) \u2014 all dataset state/outcome columns. MortalityReward likewise reads daemo_discharge only. This closes the obvious objection that our port covers only half their reward and the other half might carry the action signal: it does not."
+    },
+    {
+      "claim": "Current ventilator settings present in the state (makes delta-actions well-posed)",
+      "ventassist": "yes \u2014 PEEP, TV and FiO2 are all state features",
+      "intellilung": "partially \u2014 PEEP and FiO2 are NOT in the state, only actions",
+      "verified": true,
+      "source": "algo_src/configs/pre_processing_configs.yaml: both experiment blocks have exactly 26 state_vector_columns, which include `vent_pinsp` and `vent_vt_obs` but NOT `vent_peep` or `vent_fio2` \u2014 those two appear only under action_space. REFINEMENT to BENCHMARK_PLAN \u00a70 trap 3, which says their state lacks 'the current PEEP/FiO2 settings': correct for PEEP and FiO2, but their state DOES carry observed tidal volume, so the claim must not be widened to all three knobs."
+    },
+    {
+      "claim": "Mode-aware action masking enabled by default",
+      "ventassist": "yes \u2014 pressure-control masks 100 of 125 actions",
+      "intellilung": "no \u2014 ships disabled",
+      "verified": true,
+      "source": "algo_src/dataset/pre_processing_configs.py:28 `vent_mode_action_masking: bool = False`; both shipped config blocks (algo_src/configs/pre_processing_configs.yaml:96,191) set it false"
+    },
+    {
+      "claim": "Safety-violation rates measured against the clinician",
+      "ventassist": "yes \u2014 5 rules, policy lower on every one",
+      "intellilung": "no such metric in the repository",
+      "verified": true,
+      "source": "BENCHMARK_HANDOFF.md (their Rule 9); no violation-rate metric found in algo_src/"
+    },
+    {
+      "claim": "Enforced safety filter + hard deploy gate",
+      "ventassist": "yes \u2014 backend/router/safety_filter.py, 8/8 gate",
+      "intellilung": "no",
+      "verified": true,
+      "source": "absent from algo_src/"
+    },
+    {
+      "claim": "Decision resolution finer than theirs (1 h vs 4 h)",
+      "ventassist": "1 h",
+      "intellilung": "1 h \u2014 NOT 4 h",
+      "verified": false,
+      "source": "RETRACTED. data_pipelines/MIMIC/.env.example:8 `RESOLUTION = 3600` is the decision timestep (consumed by create_time_windows(..., resolution), time_window_creation.py:170,247); their own comment at line 292 reads 'during the 1h resolution time'. The 4 h in their code is the drug/fluid LOOK-BACK window (drugs_vaso4h, state_ivfluid4h), not the timestep. BENCHMARK_PLAN differentiator #4 and the \u00a71 'their 4h for the head-to-head' decision are both wrong and must be struck."
+    }
+  ],
+  "claim_boundaries": [
+    "The defensible claim is NO WORSE THAN THE CLINICIAN \u2014 never 'better than doctors'.",
+    "Every value number is computed under VentAssist's own reward and its own learned dynamics. FQE values are not comparable across different rewards.",
+    "Retrospective, single cohort, unmeasured confounding, no prospective validation.",
+    "Waveform influence is EXACTLY 0.0 \u2014 Track B's checkpoint is Track A's weights with an untouched [I | 0] adapter (selected_step = 0). An honest negative result on 35 patients / 895 transitions.",
+    "Responsiveness > 0 is entirely unvalidated; every number here is at responsiveness 0.",
+    "IPW addresses MEASURED confounding only, and as implemented it makes the policy worse.",
+    "Table A is their REWARD in OUR arena. It is not a comparison against their published model, which was trained on MIMIC + eICU + HiRID and whose weights they do not ship.",
+    "Their 'Hybrid-IQL' means a hybrid ACTION SPACE; our 'HybridIQL' is discrete IQL + CQL + a feature adapter. Rename ours before publication to avoid the collision."
+  ],
+  "provenance": {
+    "reward_critique_layer1": {
+      "artifact": "reward_critique_layer1.json",
+      "present": true,
+      "timestamp": "2026-07-14T20:57:17.802128+00:00",
+      "n_test": null,
+      "n_transitions": null
+    },
+    "reward_critique_layer2_multiseed": {
+      "artifact": "reward_critique_layer2_multiseed.json",
+      "present": true,
+      "timestamp": "2026-10-07T19:33:42.264500+00:00",
+      "n_test": null,
+      "n_transitions": 992100
+    },
+    "reward_critique_layer2_single_seed": {
+      "artifact": "reward_critique_layer2.json",
+      "present": true,
+      "timestamp": "2026-07-14T21:00:14.703550+00:00",
+      "n_test": null,
+      "n_transitions": 992100
+    },
+    "action_density": {
+      "artifact": "action_density_track_a.json",
+      "present": true,
+      "timestamp": "2026-10-07T08:32:43.544717+00:00",
+      "n_test": 198050,
+      "n_transitions": 992100
+    },
+    "safety_metrics": {
+      "artifact": "safety_metrics_track_a.json",
+      "present": true,
+      "timestamp": "2026-10-07T08:32:45.393321+00:00",
+      "n_test": 198050,
+      "n_transitions": 992100
+    },
+    "behaviour_compare": {
+      "artifact": "behaviour_compare_track_a.json",
+      "present": true,
+      "timestamp": "2026-10-07T06:05:18.512218+00:00",
+      "n_test": 198050,
+      "n_transitions": 992100
+    },
+    "confidence_calibration": {
+      "artifact": "confidence_calibration_track_a.json",
+      "present": true,
+      "timestamp": "2026-10-07T06:13:59.778373+00:00",
+      "n_test": 198050,
+      "n_transitions": 992100
+    },
+    "runner_coarse": {
+      "artifact": "runner_track_a.json",
+      "present": true,
+      "timestamp": "2026-10-07T06:49:36.365579+00:00",
+      "n_test": 198050,
+      "n_transitions": 992100
+    },
+    "runner_fine": {
+      "artifact": "runner_track_a_ckpt500.json",
+      "present": true,
+      "timestamp": "2026-10-07T19:57:08.287538+00:00",
+      "n_test": 198050,
+      "n_transitions": 992100
+    },
+    "runner_ipw": {
+      "artifact": "runner_track_a_ipw.json",
+      "present": true,
+      "timestamp": "2026-10-07T07:21:13.745832+00:00",
+      "n_test": 198050,
+      "n_transitions": 992100
+    },
+    "fqe_deployed": {
+      "artifact": "backend/logs/fqe_track_a.json",
+      "present": true,
+      "timestamp": "2026-07-09T16:36:14.828603+00:00",
+      "n_test": 198050,
+      "n_transitions": 992100
+    },
+    "nwe_deployed": {
+      "artifact": "backend/logs/nwe_track_a.json",
+      "present": true,
+      "timestamp": "2026-10-04T08:34:45.140012+00:00",
+      "n_test": null,
+      "n_transitions": 992100
+    },
+    "checkpoint_battery": {
+      "artifact": "checkpoint_battery_track_a.json",
+      "present": true,
+      "timestamp": "2026-10-07T20:06:57.716002+00:00",
+      "n_test": null,
+      "n_transitions": null
+    }
+  },
+  "timestamp": "2026-10-07T20:07:25.670986+00:00"
+}

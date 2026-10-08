@@ -58,12 +58,19 @@ AGREEMENT (198,050 held-out transitions)
   per-knob                     PEEP 0.897   FiO2 0.881   TV 0.695
   hold share                   0.689 vs clinicians' 0.777
   churn                        0.147 vs clinicians' 0.407
-  dTV bias                     -6.05 mL  (5-seed CI95 [-8.40, -6.50])
+  dTV bias                     -6.05 mL   (deployed model, serving encoding)
 
-MULTI-SEED (5 seeds, identical 100,000-step budget)
+MULTI-SEED (5 fresh seeds, identical 100,000-step budget, training encoding)
   fqe_V_hat                    2.4823   CI95 [2.3813, 2.5833]
   behaviour_match              0.5322   CI95 [0.4984, 0.5660]
+  dTV bias                    -7.4493   CI95 [-8.4015, -6.4971]   excludes zero
 ```
+
+> The MULTI-SEED block describes **five freshly trained policies**, not the deployed checkpoint, and
+> at the training encoding rather than the serving one. The blocks above it describe the **deployed**
+> `policy_track_a.pt`. The two are different policies and their numbers must not be combined — for
+> example the dTV bias appears in both blocks with different values (-6.05 vs -7.45) precisely
+> because they measure different things.
 
 **The defensible claim is "no worse than the clinician."** Not "better than doctors." Every value
 number above is computed under VentAssist's own reward and its own learned dynamics model, on

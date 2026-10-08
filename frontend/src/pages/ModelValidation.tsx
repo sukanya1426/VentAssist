@@ -142,6 +142,100 @@ export function ModelValidation() {
             </section>
           )}
 
+          {/* --- Track B only: the waveform ablation. Track B has no FQE/DFQE/NWE of
+                  its own, so without this the page had nothing to say and the entry
+                  card hid itself. A measured null result is evidence; silence is not. --- */}
+          {data.waveform_ablation && (
+            <section className="panel animate-rise p-6">
+              <h2 className="font-display text-sm font-semibold tracking-wide text-slate-900">
+                Waveform contribution — a measured null result
+              </h2>
+              <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+                Track B adds six waveform features to the twelve clinical ones. This
+                ablation asks what those six are worth by comparing the 18-dimensional
+                policy against the 12-dimensional one on the same held-out episodes.
+              </p>
+              <div className="mt-5 flex flex-wrap items-baseline gap-x-8 gap-y-3">
+                <div>
+                  <p className="num font-display text-2xl font-semibold text-slate-900">
+                    {data.waveform_ablation.delta_v.toFixed(4)}
+                  </p>
+                  <p className="mt-0.5 text-[10px] uppercase tracking-wide text-slate-400">
+                    ΔV̂ (18-dim − 12-dim)
+                  </p>
+                </div>
+                {data.waveform_ablation.ci_low != null &&
+                 data.waveform_ablation.ci_high != null && (
+                  <div>
+                    <p className="num text-sm text-slate-600">
+                      [{data.waveform_ablation.ci_low.toFixed(4)},{" "}
+                      {data.waveform_ablation.ci_high.toFixed(4)}]
+                    </p>
+                    <p className="mt-0.5 text-[10px] uppercase tracking-wide text-slate-400">
+                      95% CI
+                    </p>
+                  </div>
+                )}
+                {data.waveform_ablation.n_test_episodes != null && (
+                  <div>
+                    <p className="num text-sm text-slate-600">
+                      {data.waveform_ablation.n_test_episodes} episodes
+                      {data.waveform_ablation.n_test_transitions != null
+                        ? ` · ${data.waveform_ablation.n_test_transitions} transitions`
+                        : ""}
+                    </p>
+                    <p className="mt-0.5 text-[10px] uppercase tracking-wide text-slate-400">
+                      held out
+                    </p>
+                  </div>
+                )}
+              </div>
+              <p className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-[11px] leading-relaxed text-slate-600">
+                <strong className="font-semibold text-slate-800">
+                  The waveform features contribute exactly nothing.
+                </strong>{" "}
+                The deployed Track B checkpoint is Track A&rsquo;s weights with an untouched
+                <span className="num"> [I | 0] </span>
+                adapter, so the two arms are the same policy and ΔV̂ is 0.0 by construction.
+                This is reported as an honest negative result, not as a capability. Use
+                Track A for anything you intend to rely on.
+              </p>
+              {data.waveform_ablation.is_underpowered && (
+                <p className="mt-3 flex gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-800">
+                  <AlertTriangle size={13} className="mt-px shrink-0" />
+                  <span>
+                    <strong className="font-semibold">Underpowered.</strong> Fewer than ten
+                    held-out episodes, so the interval understates the true uncertainty and
+                    no significance is claimed.
+                  </span>
+                </p>
+              )}
+            </section>
+          )}
+
+          {/* --- No value estimates for this track: say so explicitly rather than
+                  rendering an empty page, which reads as a broken view. --- */}
+          {data.estimators.length === 0 && (
+            <section className="panel animate-rise p-6">
+              <h2 className="font-display text-sm font-semibold tracking-wide text-slate-900">
+                No separate value estimates for Track {data.track.toUpperCase()}
+              </h2>
+              <p className="mt-2 text-[11px] leading-relaxed text-slate-600">
+                FQE, DFQE and NWE are not reported for this track. Track B&rsquo;s deployed
+                checkpoint is Track A&rsquo;s weights with a zero-influence waveform adapter,
+                so there is no distinct policy to evaluate — running the estimators again
+                would reproduce Track A&rsquo;s numbers rather than measure anything new.
+              </p>
+              <p className="mt-3 text-[11px] leading-relaxed text-slate-600">
+                The deployed-checkpoint provenance above, the waveform ablation, and{" "}
+                <Link to="/validation?track=a" className="font-semibold text-cyan-700 underline decoration-cyan-300 underline-offset-2">
+                  Track A&rsquo;s full evaluation record
+                </Link>{" "}
+                are the evidence that applies.
+              </p>
+            </section>
+          )}
+
           {/* --- Estimated value, drawn as a deviation from the clinician baseline --- */}
           {data.estimators.length > 0 && data.baseline && (
             <section className="panel animate-rise p-6">

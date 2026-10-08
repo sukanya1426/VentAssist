@@ -132,6 +132,34 @@ def _safety_rows(nwe: dict | None) -> list[M.SafetyComparison]:
     return rows
 
 
+def _waveform_ablation(track: str) -> M.WaveformAblation | None:
+    """Track B's measured waveform contribution, or None for Track A.
+
+    Track B has no FQE/DFQE/NWE record of its own: its checkpoint IS Track A's
+    weights with an untouched ``[I | 0]`` adapter, so there is no separate policy
+    to evaluate. Without this row the Track B validation view has nothing to show
+    and the entry card used to hide itself entirely — which read as "the page is
+    missing" rather than "this track has a measured null result".
+    """
+    if track != "b":
+        return None
+    log = _read("ablation_track_b.json")
+    if log is None or log.get("delta_v") is None:
+        return None
+    ci = log.get("delta_v_CI95") or [None, None]
+    return M.WaveformAblation(
+        delta_v=log["delta_v"],
+        ci_low=ci[0], ci_high=ci[1],
+        v_hat_18dim=log.get("v_hat_18dim"),
+        v_hat_12dim=log.get("v_hat_12dim"),
+        n_test_episodes=log.get("n_test_episodes"),
+        n_test_transitions=log.get("n_test_transitions"),
+        is_underpowered=bool(log.get("is_underpowered")),
+        power_note=log.get("power_note"),
+        timestamp=log.get("timestamp"),
+    )
+
+
 @router.get("/validation", response_model=M.ValidationResponse)
 def validation(track: str = "a") -> M.ValidationResponse:
     track = "b" if track in ("b", "track_b") else "a"
@@ -167,6 +195,7 @@ def validation(track: str = "a") -> M.ValidationResponse:
         baseline=baseline,
         estimators=estimators,
         safety=_safety_rows(_read(f"nwe_track_{track}.json")),
+        waveform_ablation=_waveform_ablation(track),
         cohort_stays=cross.get("final_cohort_stays"),
         any_stale=any(e.stale for e in estimators),
         caveat=CAVEAT,

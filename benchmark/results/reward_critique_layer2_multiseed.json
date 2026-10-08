@@ -1,0 +1,1144 @@
+{
+  "layer": "2-multiseed",
+  "description": "Layer 2 across N seeds; arms are PAIRED on seed, so the only difference within a pair is the reward function",
+  "seeds": 5,
+  "steps": 30000,
+  "n_transitions": 992100,
+  "per_seed": {
+    "intellilung_range_reward": [
+      {
+        "q_spread_max_minus_min": 8.8202,
+        "q_top2_margin": 0.3317,
+        "distinct_actions_used": 11,
+        "hold_share": 0.9494,
+        "agreement_with_clinician": 0.7508,
+        "battery_passed": "3/8",
+        "battery_passed_n": 3,
+        "battery": {
+          "stable": {
+            "expect": "hold",
+            "action": [
+              0,
+              0,
+              0.0
+            ],
+            "pass": true
+          },
+          "hypoxaemic": {
+            "expect": "raise PEEP or FiO2",
+            "action": [
+              0,
+              0,
+              0.0
+            ],
+            "pass": false
+          },
+          "hyperoxic": {
+            "expect": "lower FiO2",
+            "action": [
+              0,
+              0,
+              -0.1
+            ],
+            "pass": true
+          },
+          "hypercapnic": {
+            "expect": "raise TV",
+            "action": [
+              0,
+              0,
+              0.0
+            ],
+            "pass": false
+          },
+          "hypocapnic": {
+            "expect": "lower TV",
+            "action": [
+              0,
+              0,
+              0.0
+            ],
+            "pass": false
+          },
+          "high_peep": {
+            "expect": "lower PEEP",
+            "action": [
+              0,
+              0,
+              0.0
+            ],
+            "pass": false
+          },
+          "low_peep": {
+            "expect": "raise PEEP",
+            "action": [
+              2,
+              0,
+              0.0
+            ],
+            "pass": true
+          },
+          "volutrauma": {
+            "expect": "cut TV",
+            "action": [
+              0,
+              0,
+              0.0
+            ],
+            "pass": false
+          }
+        },
+        "best_val_q": 0.3497,
+        "seed": 0
+      },
+      {
+        "q_spread_max_minus_min": 8.7004,
+        "q_top2_margin": 0.3367,
+        "distinct_actions_used": 15,
+        "hold_share": 0.9379,
+        "agreement_with_clinician": 0.7426,
+        "battery_passed": "5/8",
+        "battery_passed_n": 5,
+        "battery": {
+          "stable": {
+            "expect": "hold",
+            "action": [
+              0,
+              0,
+              0.0
+            ],
+            "pass": true
+          },
+          "hypoxaemic": {
+            "expect": "raise PEEP or FiO2",
+            "action": [
+              0,
+              0,
+              0.0
+            ],
+            "pass": false
+          },
+          "hyperoxic": {
+            "expect": "lower FiO2",
+            "action": [
+              0,
+              0,
+              -0.1
+            ],
+            "pass": true
+          },
+          "hypercapnic": {
+            "expect": "raise TV",
+            "action": [
+              0,
+              50,
+              0.0
+            ],
+            "pass": true
+          },
+          "hypocapnic": {
+            "expect": "lower TV",
+            "action": [
+              0,
+              0,
+              0.0
+            ],
+            "pass": false
+          },
+          "high_peep": {
+            "expect": "lower PEEP",
+            "action": [
+              0,
+              0,
+              0.0
+            ],
+            "pass": false
+          },
+          "low_peep": {
+            "expect": "raise PEEP",
+            "action": [
+              2,
+              0,
+              0.0
+            ],
+            "pass": true
+          },
+          "volutrauma": {
+            "expect": "cut TV",
+            "action": [
+              0,
+              -50,
+              0.0
+            ],
+            "pass": true
+          }
+        },
+        "best_val_q": 0.3284,
+        "seed": 1
+      },
+      {
+        "q_spread_max_minus_min": 9.1151,
+        "q_top2_margin": 0.4147,
+        "distinct_actions_used": 17,
+        "hold_share": 0.9509,
+        "agreement_with_clinician": 0.7492,
+        "battery_passed": "2/8",
+        "battery_passed_n": 2,
+        "battery": {
+          "stable": {
+            "expect": "hold",
+            "action": [
+              0,
+              0,
+              0.0
+            ],
+            "pass": true
+          },
+          "hypoxaemic": {
+            "expect": "raise PEEP or FiO2",
+            "action": [
+              0,
+              0,
+              0.0
+            ],
+            "pass": false
+          },
+          "hyperoxic": {
+            "expect": "lower FiO2",
+            "action": [
+              0,
+              0,
+              0.0
+            ],
+            "pass": false
+          },
+          "hypercapnic": {
+            "expect": "raise TV",
+            "action": [
+              0,
+              0,
+              0.0
+            ],
+            "pass": false
+          },
+          "hypocapnic": {
+            "expect": "lower TV",
+            "action": [
+              0,
+              0,
+              0.0
+            ],
+            "pass": false
+          },
+          "high_peep": {
+            "expect": "lower PEEP",
+            "action": [
+              0,
+              0,
+              0.0
+            ],
+            "pass": false
+          },
+          "low_peep": {
+            "expect": "raise PEEP",
+            "action": [
+              2,
+              0,
+              0.0
+            ],
+            "pass": true
+          },
+          "volutrauma": {
+            "expect": "cut TV",
+            "action": [
+              0,
+              0,
+              0.0
+            ],
+            "pass": false
+          }
+        },
+        "best_val_q": 0.3459,
+        "seed": 2
+      },
+      {
+        "q_spread_max_minus_min": 10.3713,
+        "q_top2_margin": 0.344,
+        "distinct_actions_used": 17,
+        "hold_share": 0.9489,
+        "agreement_with_clinician": 0.7469,
+        "battery_passed": "3/8",
+        "battery_passed_n": 3,
+        "battery": {
+          "stable": {
+            "expect": "hold",
+            "action": [
+              0,
+              0,
+              0.0
+            ],
+            "pass": true
+          },
+          "hypoxaemic": {
+            "expect": "raise PEEP or FiO2",
+            "action": [
+              0,
+              0,
+              0.0
+            ],
+            "pass": false
+          },
+          "hyperoxic": {
+            "expect": "lower FiO2",
+            "action": [
+              0,
+              0,
+              -0.1
+            ],
+            "pass": true
+          },
+          "hypercapnic": {
+            "expect": "raise TV",
+            "action": [
+              0,
+              0,
+              0.0
+            ],
+            "pass": false
+          },
+          "hypocapnic": {
+            "expect": "lower TV",
+            "action": [
+              0,
+              0,
+              0.0
+            ],
+            "pass": false
+          },
+          "high_peep": {
+            "expect": "lower PEEP",
+            "action": [
+              0,
+              0,
+              0.0
+            ],
+            "pass": false
+          },
+          "low_peep": {
+            "expect": "raise PEEP",
+            "action": [
+              0,
+              0,
+              0.0
+            ],
+            "pass": false
+          },
+          "volutrauma": {
+            "expect": "cut TV",
+            "action": [
+              0,
+              -50,
+              0.0
+            ],
+            "pass": true
+          }
+        },
+        "best_val_q": 0.3608,
+        "seed": 3
+      },
+      {
+        "q_spread_max_minus_min": 8.5716,
+        "q_top2_margin": 0.342,
+        "distinct_actions_used": 13,
+        "hold_share": 0.9462,
+        "agreement_with_clinician": 0.7483,
+        "battery_passed": "3/8",
+        "battery_passed_n": 3,
+        "battery": {
+          "stable": {
+            "expect": "hold",
+            "action": [
+              0,
+              0,
+              0.0
+            ],
+            "pass": true
+          },
+          "hypoxaemic": {
+            "expect": "raise PEEP or FiO2",
+            "action": [
+              0,
+              0,
+              0.0
+            ],
+            "pass": false
+          },
+          "hyperoxic": {
+            "expect": "lower FiO2",
+            "action": [
+              0,
+              0,
+              -0.1
+            ],
+            "pass": true
+          },
+          "hypercapnic": {
+            "expect": "raise TV",
+            "action": [
+              0,
+              0,
+              0.0
+            ],
+            "pass": false
+          },
+          "hypocapnic": {
+            "expect": "lower TV",
+            "action": [
+              0,
+              0,
+              0.0
+            ],
+            "pass": false
+          },
+          "high_peep": {
+            "expect": "lower PEEP",
+            "action": [
+              0,
+              0,
+              0.0
+            ],
+            "pass": false
+          },
+          "low_peep": {
+            "expect": "raise PEEP",
+            "action": [
+              2,
+              0,
+              0.0
+            ],
+            "pass": true
+          },
+          "volutrauma": {
+            "expect": "cut TV",
+            "action": [
+              0,
+              0,
+              0.0
+            ],
+            "pass": false
+          }
+        },
+        "best_val_q": 0.312,
+        "seed": 4
+      }
+    ],
+    "ventassist_reward": [
+      {
+        "q_spread_max_minus_min": 15.0312,
+        "q_top2_margin": 0.3921,
+        "distinct_actions_used": 29,
+        "hold_share": 0.5932,
+        "agreement_with_clinician": 0.5034,
+        "battery_passed": "7/8",
+        "battery_passed_n": 7,
+        "battery": {
+          "stable": {
+            "expect": "hold",
+            "action": [
+              0,
+              0,
+              0.0
+            ],
+            "pass": true
+          },
+          "hypoxaemic": {
+            "expect": "raise PEEP or FiO2",
+            "action": [
+              0,
+              0,
+              0.1
+            ],
+            "pass": true
+          },
+          "hyperoxic": {
+            "expect": "lower FiO2",
+            "action": [
+              0,
+              0,
+              -0.1
+            ],
+            "pass": true
+          },
+          "hypercapnic": {
+            "expect": "raise TV",
+            "action": [
+              0,
+              25,
+              0.0
+            ],
+            "pass": true
+          },
+          "hypocapnic": {
+            "expect": "lower TV",
+            "action": [
+              0,
+              -50,
+              0.0
+            ],
+            "pass": true
+          },
+          "high_peep": {
+            "expect": "lower PEEP",
+            "action": [
+              0,
+              0,
+              0.0
+            ],
+            "pass": false
+          },
+          "low_peep": {
+            "expect": "raise PEEP",
+            "action": [
+              2,
+              0,
+              0.0
+            ],
+            "pass": true
+          },
+          "volutrauma": {
+            "expect": "cut TV",
+            "action": [
+              0,
+              -50,
+              0.0
+            ],
+            "pass": true
+          }
+        },
+        "best_val_q": 1.4772,
+        "seed": 0
+      },
+      {
+        "q_spread_max_minus_min": 14.9642,
+        "q_top2_margin": 0.4145,
+        "distinct_actions_used": 28,
+        "hold_share": 0.6223,
+        "agreement_with_clinician": 0.527,
+        "battery_passed": "6/8",
+        "battery_passed_n": 6,
+        "battery": {
+          "stable": {
+            "expect": "hold",
+            "action": [
+              0,
+              0,
+              0.0
+            ],
+            "pass": true
+          },
+          "hypoxaemic": {
+            "expect": "raise PEEP or FiO2",
+            "action": [
+              0,
+              0,
+              0.0
+            ],
+            "pass": false
+          },
+          "hyperoxic": {
+            "expect": "lower FiO2",
+            "action": [
+              0,
+              0,
+              -0.1
+            ],
+            "pass": true
+          },
+          "hypercapnic": {
+            "expect": "raise TV",
+            "action": [
+              0,
+              50,
+              0.0
+            ],
+            "pass": true
+          },
+          "hypocapnic": {
+            "expect": "lower TV",
+            "action": [
+              0,
+              -50,
+              0.0
+            ],
+            "pass": true
+          },
+          "high_peep": {
+            "expect": "lower PEEP",
+            "action": [
+              0,
+              0,
+              0.0
+            ],
+            "pass": false
+          },
+          "low_peep": {
+            "expect": "raise PEEP",
+            "action": [
+              2,
+              0,
+              0.0
+            ],
+            "pass": true
+          },
+          "volutrauma": {
+            "expect": "cut TV",
+            "action": [
+              0,
+              -50,
+              0.0
+            ],
+            "pass": true
+          }
+        },
+        "best_val_q": 1.4881,
+        "seed": 1
+      },
+      {
+        "q_spread_max_minus_min": 15.0765,
+        "q_top2_margin": 0.4488,
+        "distinct_actions_used": 30,
+        "hold_share": 0.6,
+        "agreement_with_clinician": 0.5088,
+        "battery_passed": "7/8",
+        "battery_passed_n": 7,
+        "battery": {
+          "stable": {
+            "expect": "hold",
+            "action": [
+              0,
+              0,
+              0.0
+            ],
+            "pass": true
+          },
+          "hypoxaemic": {
+            "expect": "raise PEEP or FiO2",
+            "action": [
+              0,
+              0,
+              0.1
+            ],
+            "pass": true
+          },
+          "hyperoxic": {
+            "expect": "lower FiO2",
+            "action": [
+              0,
+              0,
+              -0.1
+            ],
+            "pass": true
+          },
+          "hypercapnic": {
+            "expect": "raise TV",
+            "action": [
+              0,
+              50,
+              0.0
+            ],
+            "pass": true
+          },
+          "hypocapnic": {
+            "expect": "lower TV",
+            "action": [
+              0,
+              -50,
+              0.0
+            ],
+            "pass": true
+          },
+          "high_peep": {
+            "expect": "lower PEEP",
+            "action": [
+              0,
+              0,
+              0.0
+            ],
+            "pass": false
+          },
+          "low_peep": {
+            "expect": "raise PEEP",
+            "action": [
+              2,
+              -50,
+              0.0
+            ],
+            "pass": true
+          },
+          "volutrauma": {
+            "expect": "cut TV",
+            "action": [
+              0,
+              -50,
+              0.0
+            ],
+            "pass": true
+          }
+        },
+        "best_val_q": 1.4758,
+        "seed": 2
+      },
+      {
+        "q_spread_max_minus_min": 15.2602,
+        "q_top2_margin": 0.4049,
+        "distinct_actions_used": 33,
+        "hold_share": 0.6156,
+        "agreement_with_clinician": 0.5195,
+        "battery_passed": "7/8",
+        "battery_passed_n": 7,
+        "battery": {
+          "stable": {
+            "expect": "hold",
+            "action": [
+              0,
+              0,
+              0.0
+            ],
+            "pass": true
+          },
+          "hypoxaemic": {
+            "expect": "raise PEEP or FiO2",
+            "action": [
+              0,
+              0,
+              0.1
+            ],
+            "pass": true
+          },
+          "hyperoxic": {
+            "expect": "lower FiO2",
+            "action": [
+              0,
+              0,
+              -0.1
+            ],
+            "pass": true
+          },
+          "hypercapnic": {
+            "expect": "raise TV",
+            "action": [
+              0,
+              25,
+              0.0
+            ],
+            "pass": true
+          },
+          "hypocapnic": {
+            "expect": "lower TV",
+            "action": [
+              0,
+              -50,
+              0.0
+            ],
+            "pass": true
+          },
+          "high_peep": {
+            "expect": "lower PEEP",
+            "action": [
+              0,
+              0,
+              0.0
+            ],
+            "pass": false
+          },
+          "low_peep": {
+            "expect": "raise PEEP",
+            "action": [
+              2,
+              -50,
+              0.0
+            ],
+            "pass": true
+          },
+          "volutrauma": {
+            "expect": "cut TV",
+            "action": [
+              0,
+              -50,
+              0.0
+            ],
+            "pass": true
+          }
+        },
+        "best_val_q": 1.4821,
+        "seed": 3
+      },
+      {
+        "q_spread_max_minus_min": 14.4991,
+        "q_top2_margin": 0.3973,
+        "distinct_actions_used": 29,
+        "hold_share": 0.6023,
+        "agreement_with_clinician": 0.5104,
+        "battery_passed": "6/8",
+        "battery_passed_n": 6,
+        "battery": {
+          "stable": {
+            "expect": "hold",
+            "action": [
+              0,
+              0,
+              0.0
+            ],
+            "pass": true
+          },
+          "hypoxaemic": {
+            "expect": "raise PEEP or FiO2",
+            "action": [
+              0,
+              0,
+              0.0
+            ],
+            "pass": false
+          },
+          "hyperoxic": {
+            "expect": "lower FiO2",
+            "action": [
+              0,
+              0,
+              -0.1
+            ],
+            "pass": true
+          },
+          "hypercapnic": {
+            "expect": "raise TV",
+            "action": [
+              0,
+              50,
+              0.0
+            ],
+            "pass": true
+          },
+          "hypocapnic": {
+            "expect": "lower TV",
+            "action": [
+              0,
+              -50,
+              0.0
+            ],
+            "pass": true
+          },
+          "high_peep": {
+            "expect": "lower PEEP",
+            "action": [
+              0,
+              0,
+              0.0
+            ],
+            "pass": false
+          },
+          "low_peep": {
+            "expect": "raise PEEP",
+            "action": [
+              2,
+              0,
+              0.0
+            ],
+            "pass": true
+          },
+          "volutrauma": {
+            "expect": "cut TV",
+            "action": [
+              0,
+              -50,
+              0.0
+            ],
+            "pass": true
+          }
+        },
+        "best_val_q": 1.4779,
+        "seed": 4
+      }
+    ]
+  },
+  "aggregate": {
+    "intellilung_range_reward": {
+      "q_spread_max_minus_min": {
+        "mean": 9.11572,
+        "sd": 0.730132,
+        "ci95": [
+          8.209287,
+          10.022153
+        ],
+        "half_width": 0.906433,
+        "n": 5,
+        "min": 8.5716,
+        "max": 10.3713
+      },
+      "q_top2_margin": {
+        "mean": 0.35382,
+        "sd": 0.034369,
+        "ci95": [
+          0.311152,
+          0.396488
+        ],
+        "half_width": 0.042668,
+        "n": 5,
+        "min": 0.3317,
+        "max": 0.4147
+      },
+      "distinct_actions_used": {
+        "mean": 14.6,
+        "sd": 2.607681,
+        "ci95": [
+          11.362656,
+          17.837344
+        ],
+        "half_width": 3.237344,
+        "n": 5,
+        "min": 11.0,
+        "max": 17.0
+      },
+      "hold_share": {
+        "mean": 0.94666,
+        "sd": 0.005183,
+        "ci95": [
+          0.940226,
+          0.953094
+        ],
+        "half_width": 0.006434,
+        "n": 5,
+        "min": 0.9379,
+        "max": 0.9509
+      },
+      "agreement_with_clinician": {
+        "mean": 0.74756,
+        "sd": 0.003113,
+        "ci95": [
+          0.743695,
+          0.751425
+        ],
+        "half_width": 0.003865,
+        "n": 5,
+        "min": 0.7426,
+        "max": 0.7508
+      },
+      "battery_passed_n": {
+        "mean": 3.2,
+        "sd": 1.095445,
+        "ci95": [
+          1.840043,
+          4.559957
+        ],
+        "half_width": 1.359957,
+        "n": 5,
+        "min": 2.0,
+        "max": 5.0
+      },
+      "best_val_q": {
+        "mean": 0.33936,
+        "sd": 0.019223,
+        "ci95": [
+          0.315496,
+          0.363224
+        ],
+        "half_width": 0.023864,
+        "n": 5,
+        "min": 0.312,
+        "max": 0.3608
+      },
+      "battery_pass_rate": {
+        "stable": 1.0,
+        "hypoxaemic": 0.0,
+        "hyperoxic": 0.8,
+        "hypercapnic": 0.2,
+        "hypocapnic": 0.0,
+        "high_peep": 0.0,
+        "low_peep": 0.8,
+        "volutrauma": 0.4
+      }
+    },
+    "ventassist_reward": {
+      "q_spread_max_minus_min": {
+        "mean": 14.96624,
+        "sd": 0.28329,
+        "ci95": [
+          14.614545,
+          15.317935
+        ],
+        "half_width": 0.351695,
+        "n": 5,
+        "min": 14.4991,
+        "max": 15.2602
+      },
+      "q_top2_margin": {
+        "mean": 0.41152,
+        "sd": 0.022482,
+        "ci95": [
+          0.383609,
+          0.439431
+        ],
+        "half_width": 0.027911,
+        "n": 5,
+        "min": 0.3921,
+        "max": 0.4488
+      },
+      "distinct_actions_used": {
+        "mean": 29.8,
+        "sd": 1.923538,
+        "ci95": [
+          27.411995,
+          32.188005
+        ],
+        "half_width": 2.388005,
+        "n": 5,
+        "min": 28.0,
+        "max": 33.0
+      },
+      "hold_share": {
+        "mean": 0.60668,
+        "sd": 0.011928,
+        "ci95": [
+          0.591872,
+          0.621488
+        ],
+        "half_width": 0.014808,
+        "n": 5,
+        "min": 0.5932,
+        "max": 0.6223
+      },
+      "agreement_with_clinician": {
+        "mean": 0.51382,
+        "sd": 0.009373,
+        "ci95": [
+          0.502183,
+          0.525457
+        ],
+        "half_width": 0.011637,
+        "n": 5,
+        "min": 0.5034,
+        "max": 0.527
+      },
+      "battery_passed_n": {
+        "mean": 6.6,
+        "sd": 0.547723,
+        "ci95": [
+          5.920022,
+          7.279978
+        ],
+        "half_width": 0.679978,
+        "n": 5,
+        "min": 6.0,
+        "max": 7.0
+      },
+      "best_val_q": {
+        "mean": 1.48022,
+        "sd": 0.004992,
+        "ci95": [
+          1.474023,
+          1.486417
+        ],
+        "half_width": 0.006197,
+        "n": 5,
+        "min": 1.4758,
+        "max": 1.4881
+      },
+      "battery_pass_rate": {
+        "stable": 1.0,
+        "hypoxaemic": 0.6,
+        "hyperoxic": 1.0,
+        "hypercapnic": 1.0,
+        "hypocapnic": 1.0,
+        "high_peep": 0.0,
+        "low_peep": 1.0,
+        "volutrauma": 1.0
+      }
+    }
+  },
+  "paired_delta_ventassist_minus_intellilung": {
+    "q_spread_max_minus_min": {
+      "mean": 5.85052,
+      "sd": 0.557602,
+      "ci95": [
+        5.158277,
+        6.542763
+      ],
+      "half_width": 0.692243,
+      "n": 5,
+      "min": 4.8889,
+      "max": 6.2638
+    },
+    "q_top2_margin": {
+      "mean": 0.0577,
+      "sd": 0.015686,
+      "ci95": [
+        0.038226,
+        0.077174
+      ],
+      "half_width": 0.019474,
+      "n": 5,
+      "min": 0.0341,
+      "max": 0.0778
+    },
+    "distinct_actions_used": {
+      "mean": 15.2,
+      "sd": 2.167948,
+      "ci95": [
+        12.508568,
+        17.891432
+      ],
+      "half_width": 2.691432,
+      "n": 5,
+      "min": 13.0,
+      "max": 18.0
+    },
+    "hold_share": {
+      "mean": -0.33998,
+      "sd": 0.016099,
+      "ci95": [
+        -0.359966,
+        -0.319994
+      ],
+      "half_width": 0.019986,
+      "n": 5,
+      "min": -0.3562,
+      "max": -0.3156
+    },
+    "agreement_with_clinician": {
+      "mean": -0.23374,
+      "sd": 0.012425,
+      "ci95": [
+        -0.249165,
+        -0.218315
+      ],
+      "half_width": 0.015425,
+      "n": 5,
+      "min": -0.2474,
+      "max": -0.2156
+    },
+    "battery_passed_n": {
+      "mean": 3.4,
+      "sd": 1.516575,
+      "ci95": [
+        1.517225,
+        5.282775
+      ],
+      "half_width": 1.882775,
+      "n": 5,
+      "min": 1.0,
+      "max": 5.0
+    },
+    "best_val_q": {
+      "mean": 1.14086,
+      "sd": 0.020391,
+      "ci95": [
+        1.115545,
+        1.166175
+      ],
+      "half_width": 0.025315,
+      "n": 5,
+      "min": 1.1213,
+      "max": 1.1659
+    }
+  },
+  "timestamp": "2026-10-07T19:33:42.264500+00:00"
+}

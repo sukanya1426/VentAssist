@@ -28,6 +28,25 @@ the subset our 12-dim tabular state supports:
 
 The omissions do not affect the critique: the reward's *action-independence* is
 structural (it is a function of s′ alone), not a property of which features are in it.
+
+WHY THE PORT COVERING ONE COMPONENT IS ENOUGH (verified against the full repo,
+2026-10-08). Their configured reward is not RangeReward alone, it is
+`AddRewards([RangeReward, VFDEachStep])`. The second component is action-independent
+too: `VFDEachStep` reads `pause_until_next`, `mv_duration` and `daemo_discharge`
+(`algo_src/reward/ventilator_free_days.py:57`) — all dataset state/outcome columns.
+`MortalityReward` reads `daemo_discharge` alone. So porting RangeReward does not
+cherry-pick the action-blind half of their reward; both halves are action-blind.
+
+STRONGER STILL, AND THE FORM TO USE IN THE REPORT. The action is absent from their
+reward *interface*, not merely unused by their chosen reward. The abstract signature
+at `algo_src/reward/base.py:7` is
+
+    def __call__(self, dataset, terminated, pre_process_configs, **kwargs)
+
+— no action parameter — and all five implementations inherit it unchanged. The string
+`action` does not occur anywhere in `algo_src/reward/*.py`. Their abstraction therefore
+*cannot express* an action-dependent reward, which is a design-level claim rather than a
+parameter-choice one.
 """
 
 from __future__ import annotations

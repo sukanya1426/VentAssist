@@ -26,7 +26,10 @@ from pathlib import Path
 
 from benchmark import action_density as AD
 from benchmark import behaviour_compare as BC
+from benchmark import checkpoint_battery as CB
+from benchmark import comparison_table as CT
 from benchmark import confidence_calibration as CC
+from benchmark import reward_critique as RC
 from benchmark import runner as RN
 from benchmark import safety_metrics as SM
 from benchmark import split_compat as SC
@@ -41,6 +44,11 @@ WRITERS = {
     "confidence_calibration.evaluate": CC.evaluate,
     "split_compat.build": SC.build,
     "runner.run": RN.run,
+    "checkpoint_battery.evaluate": CB.evaluate,
+    "comparison_table.build": CT.build,
+    "reward_critique.layer1": RC.layer1,
+    "reward_critique.layer2": RC.layer2,
+    "reward_critique.layer2_multiseed": RC.layer2_multiseed,
 }
 
 
@@ -73,7 +81,11 @@ def test_no_benchmark_test_calls_a_writer_without_disabling_the_write():
     calls = [("AD.evaluate(", "action_density"), ("SM.evaluate(", "safety_metrics"),
              ("BC.evaluate(", "behaviour_compare"),
              ("CC.evaluate(", "confidence_calibration"),
-             ("SC.build(", "split_compat"), ("RN.run(", "runner")]
+             ("SC.build(", "split_compat"), ("RN.run(", "runner"),
+             ("RC.layer1(", "reward_critique"), ("RC.layer2(", "reward_critique"),
+             ("RC.layer2_multiseed(", "reward_critique"),
+             ("CT.build(", "comparison_table"),
+             ("CB.evaluate(", "checkpoint_battery")]
     offenders = []
     for f in sorted(tests_dir.glob("test_*.py")):
         if f.name == Path(__file__).name:

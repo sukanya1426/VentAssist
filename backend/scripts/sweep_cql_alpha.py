@@ -74,7 +74,7 @@ def run(alphas, steps=30000):
         d = T._normalise(D.load_mdp("a"), "a")
         tr = np.where(d["split"] == "train")[0]
         va = np.where(d["split"] == "val")[0]
-        model, best = T._run_training(d, tr, va, cfg_all, steps, "cpu", tag=f"[a{a}] ")
+        model, best, _ = T._run_training(d, tr, va, cfg_all, steps, "cpu", tag=f"[a{a}] ")
         ev = np.where(np.isin(d["split"], ["val", "test"]))[0]
         sub = np.random.default_rng(0).choice(ev, size=min(20000, len(ev)), replace=False)
         acts = np.array([model.act(d["states"][i]) for i in sub])

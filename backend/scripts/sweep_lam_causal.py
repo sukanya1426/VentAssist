@@ -59,7 +59,7 @@ def run(lams=(0.8, 1.5, 2.5, 4.0), steps=30000):
         d = T._normalise(D.load_mdp("a"), "a")
         tr = np.where(d["split"] == "train")[0]
         va = np.where(d["split"] == "val")[0]
-        model, best = T._run_training(d, tr, va, cfg_all, steps, "cpu", tag=f"[lam{lam}] ")
+        model, best, _ = T._run_training(d, tr, va, cfg_all, steps, "cpu", tag=f"[lam{lam}] ")
         # behaviour-match / hold-share on a subsample of val+test
         ev = np.where(np.isin(d["split"], ["val", "test"]))[0]
         sub = np.random.default_rng(0).choice(ev, size=min(20000, len(ev)), replace=False)

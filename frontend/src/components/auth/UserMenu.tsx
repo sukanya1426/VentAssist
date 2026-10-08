@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { LogOut, UserRound } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ClipboardCheck, LogOut, UserRound } from "lucide-react";
 import { useAuth } from "../../store/useAuth";
 
 /**
@@ -67,6 +68,18 @@ export function UserMenu() {
               Recommendations you request are filed under this account.
             </p>
           </div>
+          {/* The model-evidence page is model-level, not patient-level, so it used to
+              be reachable only from inside a patient record — which meant a clinician
+              on the roster had no way to find it at all. It belongs in the header menu
+              that is present on every signed-in page. */}
+          <Link
+            role="menuitem"
+            to="/validation?track=a"
+            onClick={() => setOpen(false)}
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[12px] text-slate-700 transition hover:bg-cyan-50 hover:text-cyan-800"
+          >
+            <ClipboardCheck size={13} /> How this model was evaluated
+          </Link>
           <button
             role="menuitem"
             onClick={() => { setOpen(false); logout(); }}

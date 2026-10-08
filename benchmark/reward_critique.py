@@ -83,7 +83,8 @@ def _battery_verdict(name: str, dp: int, dt: int, df: float) -> bool:
 # --------------------------------------------------------------------------- #
 # LAYER 1 — structural: counterfactual action-sensitivity
 # --------------------------------------------------------------------------- #
-def layer1(track: str = "a", n_sample: int = 3000, seed: int = 0) -> dict:
+def layer1(track: str = "a", n_sample: int = 3000, seed: int = 0,
+           write: bool = True) -> dict:
     d = D.load_mdp(track)
     feats = list(d["feature_order"])
     cfg = yaml.safe_load((config.REPO_ROOT / "backend" / "configs"
@@ -136,8 +137,9 @@ def layer1(track: str = "a", n_sample: int = 3000, seed: int = 0) -> dict:
                     "discriminates between actions."),
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
-    RESULTS.mkdir(parents=True, exist_ok=True)
-    (RESULTS / "reward_critique_layer1.json").write_text(json.dumps(result, indent=2))
+    if write:
+        RESULTS.mkdir(parents=True, exist_ok=True)
+        (RESULTS / "reward_critique_layer1.json").write_text(json.dumps(result, indent=2))
 
     log.info("LAYER 1 — counterfactual reward spread over 125 actions (n=%d):", len(idx))
     log.info("  IntelliLung RangeReward : mean=%.6f  max=%.6f  zero-spread on %.1f%% of transitions",
@@ -184,43 +186,63 @@ def _policy_diagnostics(model, d, test_idx, stats, feats) -> dict:
         "hold_share": round(float(np.mean(acts == hold)), 4),
         "agreement_with_clinician": round(float(np.mean(acts == behav)), 4),
         "battery_passed": f"{passed}/8",
+        "battery_passed_n": int(passed),
         "battery": battery,
     }
 
 
-def layer2(track: str = "a", steps: int = 30000, seed: int = 0) -> dict:
+def _prepare(track: str):
+    """Load the MDP once: both reward vectors, the splits, the serving normaliser.
+
+    Hoisted out of ``layer2`` so a multi-seed run pays the 992k-transition load
+    and the z-scoring once rather than once per seed.
+    """
     from backend.mdp import normaliser as N
     from backend.rl import trainer
 
     cfg = yaml.safe_load((config.REPO_ROOT / "backend" / "configs"
                           / "track_a_config.yaml").read_text())
+    raw = D.load_mdp(track)
     d = trainer._normalise(D.load_mdp(track), track)
     stats = N.load(config.MODEL_PATH / "normaliser_stats.json")
     feats = list(d["feature_order"])
+    idxs = {k: np.where(d["split"] == k)[0] for k in ("train", "val", "test")}
 
-    train_idx = np.where(d["split"] == "train")[0]
-    val_idx = np.where(d["split"] == "val")[0]
-    test_idx = np.where(d["split"] == "test")[0]
+    # Their reward is computed from the RAW next states: ``load_mdp`` stores raw
+    # pre-normalisation values and ``_normalise`` z-scores copies, so recompute
+    # from a fresh raw load rather than trusting the normalised arrays.
+    arms = {
+        "intellilung_range_reward": IL.range_reward(raw["next_states"], feats).astype(np.float32),
+        "ventassist_reward": d["rewards"].astype(np.float32),
+    }
+    return cfg, d, stats, feats, idxs, arms
 
-    # Their reward: computed from the RAW next states (dataset stores raw pre-normalisation
-    # values in load_mdp; _normalise only z-scored `states`/`next_states` copies, so we
-    # recompute from the raw parquet to be safe).
-    raw = D.load_mdp(track)
-    il_rewards = IL.range_reward(raw["next_states"], feats).astype(np.float32)
 
-    out = {}
-    for label, rewards in (("intellilung_range_reward", il_rewards),
-                           ("ventassist_reward", d["rewards"].astype(np.float32))):
-        log.info("=== LAYER 2: training with %s (steps=%d) ===", label, steps)
-        dd = {**d, "rewards": rewards}
-        model, best_val = trainer._run_training(dd, train_idx, val_idx, cfg, steps,
-                                                device="cpu", tag=f"[{label}] ")
-        diag = _policy_diagnostics(model, dd, test_idx, stats, feats)
-        diag["best_val_q"] = round(float(best_val), 4)
-        out[label] = diag
-        log.info("  %s -> Q-spread=%.4f top2=%.4f distinct=%d hold=%.2f battery=%s",
-                 label, diag["q_spread_max_minus_min"], diag["q_top2_margin"],
-                 diag["distinct_actions_used"], diag["hold_share"], diag["battery_passed"])
+def _train_arm(d, rewards, cfg, steps, seed, idxs, stats, feats, label) -> dict:
+    """Train one reward arm at one seed and return its policy diagnostics."""
+    from backend.rl import trainer
+
+    log.info("=== LAYER 2: %s (steps=%d, seed=%s) ===", label, steps, seed)
+    dd = {**d, "rewards": rewards}
+    model, best_val, _prov = trainer._run_training(
+        dd, idxs["train"], idxs["val"], cfg, steps, device="cpu",
+        tag=f"[{label} s{seed}] ", seed=seed)
+    diag = _policy_diagnostics(model, dd, idxs["test"], stats, feats)
+    diag["best_val_q"] = round(float(best_val), 4)
+    diag["seed"] = seed
+    log.info("  %s -> Q-spread=%.4f top2=%.4f distinct=%d hold=%.2f agree=%.4f battery=%s",
+             label, diag["q_spread_max_minus_min"], diag["q_top2_margin"],
+             diag["distinct_actions_used"], diag["hold_share"],
+             diag["agreement_with_clinician"], diag["battery_passed"])
+    return diag
+
+
+def layer2(track: str = "a", steps: int = 30000, seed: int = 0,
+           write: bool = True) -> dict:
+    """Single-seed Layer 2: same architecture, same MDP, only the reward differs."""
+    cfg, d, stats, feats, idxs, arms = _prepare(track)
+    out = {label: _train_arm(d, r, cfg, steps, seed, idxs, stats, feats, label)
+           for label, r in arms.items()}
 
     result = {
         "layer": 2,
@@ -230,8 +252,73 @@ def layer2(track: str = "a", steps: int = 30000, seed: int = 0) -> dict:
         **out,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
-    RESULTS.mkdir(parents=True, exist_ok=True)
-    (RESULTS / "reward_critique_layer2.json").write_text(json.dumps(result, indent=2))
+    if write:
+        RESULTS.mkdir(parents=True, exist_ok=True)
+        (RESULTS / "reward_critique_layer2.json").write_text(json.dumps(result, indent=2))
+    return result
+
+
+# Metrics aggregated across seeds. Everything here is a per-seed property of the
+# fitted policy; the clinician-side quantities are not, and are deliberately absent.
+_AGG = ("q_spread_max_minus_min", "q_top2_margin", "distinct_actions_used",
+        "hold_share", "agreement_with_clinician", "battery_passed_n", "best_val_q")
+
+
+def layer2_multiseed(track: str = "a", seeds: int = 5, steps: int = 30000,
+                     write: bool = True) -> dict:
+    """Layer 2 across N seeds, with a t-distribution CI on every contrast.
+
+    The single-seed Layer 2 result could not distinguish "their reward collapses
+    the policy" from "this particular initialisation collapsed". Both arms share
+    the seed at each index, so the two are paired: the same weight
+    initialisation and the same minibatch stream, differing only in the reward.
+    """
+    from benchmark.runner import _ci95
+
+    cfg, d, stats, feats, idxs, arms = _prepare(track)
+    per_seed = {label: [] for label in arms}
+    for seed in range(seeds):
+        for label, r in arms.items():
+            per_seed[label].append(
+                _train_arm(d, r, cfg, steps, seed, idxs, stats, feats, label))
+
+    agg = {}
+    for label, runs in per_seed.items():
+        agg[label] = {m: _ci95([run[m] for run in runs]) for m in _AGG}
+        # Per-case battery pass rate: which clinical cases fail, not just how many.
+        agg[label]["battery_pass_rate"] = {
+            case: round(sum(run["battery"][case]["pass"] for run in runs) / len(runs), 4)
+            for case in BATTERY
+        }
+
+    # Paired per-seed deltas (ours − theirs). Pairing removes the seed variance
+    # that a difference of two independent means would carry.
+    il, va = "intellilung_range_reward", "ventassist_reward"
+    paired = {m: _ci95([per_seed[va][i][m] - per_seed[il][i][m] for i in range(seeds)])
+              for m in _AGG}
+
+    result = {
+        "layer": "2-multiseed",
+        "description": ("Layer 2 across N seeds; arms are PAIRED on seed, so the only "
+                        "difference within a pair is the reward function"),
+        "seeds": seeds, "steps": steps,
+        "n_transitions": int(len(d["actions"])),
+        "per_seed": per_seed,
+        "aggregate": agg,
+        "paired_delta_ventassist_minus_intellilung": paired,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    if write:
+        RESULTS.mkdir(parents=True, exist_ok=True)
+        (RESULTS / "reward_critique_layer2_multiseed.json").write_text(
+            json.dumps(result, indent=2))
+
+    log.info("LAYER 2 across %d seeds (paired on seed):", seeds)
+    for m in _AGG:
+        a, b, dl = agg[il][m], agg[va][m], paired[m]
+        log.info("  %-26s theirs %.4f %s | ours %.4f %s | paired D %.4f %s",
+                 m, a["mean"], a.get("ci95"), b["mean"], b.get("ci95"),
+                 dl["mean"], dl.get("ci95"))
     return result
 
 
@@ -241,11 +328,19 @@ def main():
     ap.add_argument("--track", default="a", choices=["a", "b"])
     ap.add_argument("--steps", type=int, default=30000)
     ap.add_argument("--n-sample", type=int, default=3000)
+    ap.add_argument("--seeds", type=int, default=1,
+                    help="N>1 runs the paired multi-seed Layer 2 with CIs")
+    ap.add_argument("--seed", type=int, default=0, help="single-seed Layer 2 only")
+    ap.add_argument("--no-write", action="store_true")
     args = ap.parse_args()
+    write = not args.no_write
     if args.layer in ("1", "both"):
-        layer1(args.track, n_sample=args.n_sample)
+        layer1(args.track, n_sample=args.n_sample, write=write)
     if args.layer in ("2", "both"):
-        layer2(args.track, steps=args.steps)
+        if args.seeds > 1:
+            layer2_multiseed(args.track, seeds=args.seeds, steps=args.steps, write=write)
+        else:
+            layer2(args.track, steps=args.steps, seed=args.seed, write=write)
 
 
 if __name__ == "__main__":

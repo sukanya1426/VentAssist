@@ -1,0 +1,956 @@
+{
+  "track": "a",
+  "question": "Does the checkpoint the trainer selects on validation Q-loss behave best clinically?",
+  "answer": "No \u2014 the battery keeps improving well past the val-loss optimum.",
+  "encoding": "serving (transform_inference), as the deploy gate scores it",
+  "families": {
+    "deployed": {
+      "approx_selected_step": 27000,
+      "note": "the live artifact; step-27,000 weights (the state_dict aliasing bug)",
+      "n_checkpoints": 1,
+      "battery_passed_mean": 8.0,
+      "battery_passed_min": 8,
+      "battery_passed_max": 8,
+      "per_case_pass_rate": {
+        "stable": 1.0,
+        "hypoxaemic": 1.0,
+        "hyperoxic": 1.0,
+        "hypercapnic": 1.0,
+        "hypocapnic": 1.0,
+        "high_peep": 1.0,
+        "low_peep": 1.0,
+        "volutrauma": 1.0
+      },
+      "per_checkpoint": [
+        {
+          "checkpoint": "policy_track_a.pt",
+          "passed": 8,
+          "battery": {
+            "stable": {
+              "expect": "hold",
+              "action": [
+                0,
+                0,
+                0.0
+              ],
+              "pass": true
+            },
+            "hypoxaemic": {
+              "expect": "raise PEEP or FiO2",
+              "action": [
+                2,
+                0,
+                0.0
+              ],
+              "pass": true
+            },
+            "hyperoxic": {
+              "expect": "lower FiO2",
+              "action": [
+                0,
+                0,
+                -0.1
+              ],
+              "pass": true
+            },
+            "hypercapnic": {
+              "expect": "raise TV",
+              "action": [
+                0,
+                25,
+                0.0
+              ],
+              "pass": true
+            },
+            "hypocapnic": {
+              "expect": "lower TV",
+              "action": [
+                0,
+                -50,
+                0.0
+              ],
+              "pass": true
+            },
+            "high_peep": {
+              "expect": "lower PEEP",
+              "action": [
+                -2,
+                0,
+                0.0
+              ],
+              "pass": true
+            },
+            "low_peep": {
+              "expect": "raise PEEP",
+              "action": [
+                2,
+                0,
+                0.0
+              ],
+              "pass": true
+            },
+            "volutrauma": {
+              "expect": "cut TV",
+              "action": [
+                0,
+                -50,
+                0.0
+              ],
+              "pass": true
+            }
+          }
+        }
+      ]
+    },
+    "coarse_checkpoint_every_10000": {
+      "approx_selected_step": 10000,
+      "note": "5 fresh seeds, all selected step 10,000 (the first checkpoint seen)",
+      "n_checkpoints": 5,
+      "battery_passed_mean": 7.2,
+      "battery_passed_min": 6,
+      "battery_passed_max": 8,
+      "per_case_pass_rate": {
+        "stable": 1.0,
+        "hypoxaemic": 0.8,
+        "hyperoxic": 1.0,
+        "hypercapnic": 1.0,
+        "hypocapnic": 1.0,
+        "high_peep": 0.4,
+        "low_peep": 1.0,
+        "volutrauma": 1.0
+      },
+      "per_checkpoint": [
+        {
+          "checkpoint": "policy_track_a_seed0.pt",
+          "passed": 8,
+          "battery": {
+            "stable": {
+              "expect": "hold",
+              "action": [
+                0,
+                0,
+                0.0
+              ],
+              "pass": true
+            },
+            "hypoxaemic": {
+              "expect": "raise PEEP or FiO2",
+              "action": [
+                0,
+                0,
+                0.1
+              ],
+              "pass": true
+            },
+            "hyperoxic": {
+              "expect": "lower FiO2",
+              "action": [
+                0,
+                0,
+                -0.1
+              ],
+              "pass": true
+            },
+            "hypercapnic": {
+              "expect": "raise TV",
+              "action": [
+                0,
+                25,
+                0.0
+              ],
+              "pass": true
+            },
+            "hypocapnic": {
+              "expect": "lower TV",
+              "action": [
+                0,
+                -50,
+                0.0
+              ],
+              "pass": true
+            },
+            "high_peep": {
+              "expect": "lower PEEP",
+              "action": [
+                -2,
+                0,
+                0.0
+              ],
+              "pass": true
+            },
+            "low_peep": {
+              "expect": "raise PEEP",
+              "action": [
+                2,
+                0,
+                0.0
+              ],
+              "pass": true
+            },
+            "volutrauma": {
+              "expect": "cut TV",
+              "action": [
+                0,
+                -50,
+                0.0
+              ],
+              "pass": true
+            }
+          }
+        },
+        {
+          "checkpoint": "policy_track_a_seed1.pt",
+          "passed": 7,
+          "battery": {
+            "stable": {
+              "expect": "hold",
+              "action": [
+                0,
+                0,
+                0.0
+              ],
+              "pass": true
+            },
+            "hypoxaemic": {
+              "expect": "raise PEEP or FiO2",
+              "action": [
+                0,
+                0,
+                0.1
+              ],
+              "pass": true
+            },
+            "hyperoxic": {
+              "expect": "lower FiO2",
+              "action": [
+                0,
+                0,
+                -0.1
+              ],
+              "pass": true
+            },
+            "hypercapnic": {
+              "expect": "raise TV",
+              "action": [
+                0,
+                50,
+                0.0
+              ],
+              "pass": true
+            },
+            "hypocapnic": {
+              "expect": "lower TV",
+              "action": [
+                0,
+                -50,
+                0.0
+              ],
+              "pass": true
+            },
+            "high_peep": {
+              "expect": "lower PEEP",
+              "action": [
+                0,
+                0,
+                0.0
+              ],
+              "pass": false
+            },
+            "low_peep": {
+              "expect": "raise PEEP",
+              "action": [
+                2,
+                0,
+                0.0
+              ],
+              "pass": true
+            },
+            "volutrauma": {
+              "expect": "cut TV",
+              "action": [
+                0,
+                -50,
+                0.0
+              ],
+              "pass": true
+            }
+          }
+        },
+        {
+          "checkpoint": "policy_track_a_seed2.pt",
+          "passed": 7,
+          "battery": {
+            "stable": {
+              "expect": "hold",
+              "action": [
+                0,
+                0,
+                0.0
+              ],
+              "pass": true
+            },
+            "hypoxaemic": {
+              "expect": "raise PEEP or FiO2",
+              "action": [
+                0,
+                0,
+                0.1
+              ],
+              "pass": true
+            },
+            "hyperoxic": {
+              "expect": "lower FiO2",
+              "action": [
+                0,
+                0,
+                -0.1
+              ],
+              "pass": true
+            },
+            "hypercapnic": {
+              "expect": "raise TV",
+              "action": [
+                0,
+                50,
+                0.0
+              ],
+              "pass": true
+            },
+            "hypocapnic": {
+              "expect": "lower TV",
+              "action": [
+                0,
+                -50,
+                0.0
+              ],
+              "pass": true
+            },
+            "high_peep": {
+              "expect": "lower PEEP",
+              "action": [
+                0,
+                0,
+                0.0
+              ],
+              "pass": false
+            },
+            "low_peep": {
+              "expect": "raise PEEP",
+              "action": [
+                2,
+                50,
+                0.1
+              ],
+              "pass": true
+            },
+            "volutrauma": {
+              "expect": "cut TV",
+              "action": [
+                0,
+                -50,
+                0.0
+              ],
+              "pass": true
+            }
+          }
+        },
+        {
+          "checkpoint": "policy_track_a_seed3.pt",
+          "passed": 6,
+          "battery": {
+            "stable": {
+              "expect": "hold",
+              "action": [
+                0,
+                0,
+                0.0
+              ],
+              "pass": true
+            },
+            "hypoxaemic": {
+              "expect": "raise PEEP or FiO2",
+              "action": [
+                0,
+                0,
+                0.0
+              ],
+              "pass": false
+            },
+            "hyperoxic": {
+              "expect": "lower FiO2",
+              "action": [
+                0,
+                0,
+                -0.1
+              ],
+              "pass": true
+            },
+            "hypercapnic": {
+              "expect": "raise TV",
+              "action": [
+                0,
+                25,
+                0.0
+              ],
+              "pass": true
+            },
+            "hypocapnic": {
+              "expect": "lower TV",
+              "action": [
+                0,
+                -50,
+                0.0
+              ],
+              "pass": true
+            },
+            "high_peep": {
+              "expect": "lower PEEP",
+              "action": [
+                0,
+                0,
+                0.0
+              ],
+              "pass": false
+            },
+            "low_peep": {
+              "expect": "raise PEEP",
+              "action": [
+                2,
+                -50,
+                0.1
+              ],
+              "pass": true
+            },
+            "volutrauma": {
+              "expect": "cut TV",
+              "action": [
+                0,
+                -50,
+                0.0
+              ],
+              "pass": true
+            }
+          }
+        },
+        {
+          "checkpoint": "policy_track_a_seed4.pt",
+          "passed": 8,
+          "battery": {
+            "stable": {
+              "expect": "hold",
+              "action": [
+                0,
+                0,
+                0.0
+              ],
+              "pass": true
+            },
+            "hypoxaemic": {
+              "expect": "raise PEEP or FiO2",
+              "action": [
+                0,
+                0,
+                0.1
+              ],
+              "pass": true
+            },
+            "hyperoxic": {
+              "expect": "lower FiO2",
+              "action": [
+                0,
+                0,
+                -0.1
+              ],
+              "pass": true
+            },
+            "hypercapnic": {
+              "expect": "raise TV",
+              "action": [
+                0,
+                25,
+                0.0
+              ],
+              "pass": true
+            },
+            "hypocapnic": {
+              "expect": "lower TV",
+              "action": [
+                0,
+                -50,
+                0.0
+              ],
+              "pass": true
+            },
+            "high_peep": {
+              "expect": "lower PEEP",
+              "action": [
+                -2,
+                0,
+                0.0
+              ],
+              "pass": true
+            },
+            "low_peep": {
+              "expect": "raise PEEP",
+              "action": [
+                2,
+                0,
+                0.0
+              ],
+              "pass": true
+            },
+            "volutrauma": {
+              "expect": "cut TV",
+              "action": [
+                0,
+                -50,
+                0.0
+              ],
+              "pass": true
+            }
+          }
+        }
+      ]
+    },
+    "fine_checkpoint_every_500": {
+      "approx_selected_step": 5750,
+      "note": "5 fresh seeds under the CORRECTED config, selected step 5,500-6,000",
+      "n_checkpoints": 5,
+      "battery_passed_mean": 6.6,
+      "battery_passed_min": 6,
+      "battery_passed_max": 7,
+      "per_case_pass_rate": {
+        "stable": 1.0,
+        "hypoxaemic": 0.6,
+        "hyperoxic": 1.0,
+        "hypercapnic": 1.0,
+        "hypocapnic": 1.0,
+        "high_peep": 0.0,
+        "low_peep": 1.0,
+        "volutrauma": 1.0
+      },
+      "per_checkpoint": [
+        {
+          "checkpoint": "policy_track_a_ckpt500_seed0.pt",
+          "passed": 7,
+          "battery": {
+            "stable": {
+              "expect": "hold",
+              "action": [
+                0,
+                0,
+                0.0
+              ],
+              "pass": true
+            },
+            "hypoxaemic": {
+              "expect": "raise PEEP or FiO2",
+              "action": [
+                0,
+                0,
+                0.1
+              ],
+              "pass": true
+            },
+            "hyperoxic": {
+              "expect": "lower FiO2",
+              "action": [
+                0,
+                0,
+                -0.1
+              ],
+              "pass": true
+            },
+            "hypercapnic": {
+              "expect": "raise TV",
+              "action": [
+                0,
+                25,
+                0.0
+              ],
+              "pass": true
+            },
+            "hypocapnic": {
+              "expect": "lower TV",
+              "action": [
+                0,
+                -50,
+                0.0
+              ],
+              "pass": true
+            },
+            "high_peep": {
+              "expect": "lower PEEP",
+              "action": [
+                0,
+                0,
+                0.0
+              ],
+              "pass": false
+            },
+            "low_peep": {
+              "expect": "raise PEEP",
+              "action": [
+                2,
+                0,
+                0.0
+              ],
+              "pass": true
+            },
+            "volutrauma": {
+              "expect": "cut TV",
+              "action": [
+                0,
+                -50,
+                0.0
+              ],
+              "pass": true
+            }
+          }
+        },
+        {
+          "checkpoint": "policy_track_a_ckpt500_seed1.pt",
+          "passed": 6,
+          "battery": {
+            "stable": {
+              "expect": "hold",
+              "action": [
+                0,
+                0,
+                0.0
+              ],
+              "pass": true
+            },
+            "hypoxaemic": {
+              "expect": "raise PEEP or FiO2",
+              "action": [
+                0,
+                0,
+                0.0
+              ],
+              "pass": false
+            },
+            "hyperoxic": {
+              "expect": "lower FiO2",
+              "action": [
+                0,
+                0,
+                -0.1
+              ],
+              "pass": true
+            },
+            "hypercapnic": {
+              "expect": "raise TV",
+              "action": [
+                0,
+                50,
+                0.0
+              ],
+              "pass": true
+            },
+            "hypocapnic": {
+              "expect": "lower TV",
+              "action": [
+                0,
+                -50,
+                0.0
+              ],
+              "pass": true
+            },
+            "high_peep": {
+              "expect": "lower PEEP",
+              "action": [
+                0,
+                0,
+                0.0
+              ],
+              "pass": false
+            },
+            "low_peep": {
+              "expect": "raise PEEP",
+              "action": [
+                2,
+                0,
+                0.0
+              ],
+              "pass": true
+            },
+            "volutrauma": {
+              "expect": "cut TV",
+              "action": [
+                0,
+                -50,
+                0.0
+              ],
+              "pass": true
+            }
+          }
+        },
+        {
+          "checkpoint": "policy_track_a_ckpt500_seed2.pt",
+          "passed": 7,
+          "battery": {
+            "stable": {
+              "expect": "hold",
+              "action": [
+                0,
+                0,
+                0.0
+              ],
+              "pass": true
+            },
+            "hypoxaemic": {
+              "expect": "raise PEEP or FiO2",
+              "action": [
+                0,
+                0,
+                0.1
+              ],
+              "pass": true
+            },
+            "hyperoxic": {
+              "expect": "lower FiO2",
+              "action": [
+                0,
+                0,
+                -0.1
+              ],
+              "pass": true
+            },
+            "hypercapnic": {
+              "expect": "raise TV",
+              "action": [
+                0,
+                50,
+                0.0
+              ],
+              "pass": true
+            },
+            "hypocapnic": {
+              "expect": "lower TV",
+              "action": [
+                0,
+                -50,
+                0.0
+              ],
+              "pass": true
+            },
+            "high_peep": {
+              "expect": "lower PEEP",
+              "action": [
+                0,
+                0,
+                0.0
+              ],
+              "pass": false
+            },
+            "low_peep": {
+              "expect": "raise PEEP",
+              "action": [
+                2,
+                -50,
+                0.0
+              ],
+              "pass": true
+            },
+            "volutrauma": {
+              "expect": "cut TV",
+              "action": [
+                0,
+                -50,
+                0.0
+              ],
+              "pass": true
+            }
+          }
+        },
+        {
+          "checkpoint": "policy_track_a_ckpt500_seed3.pt",
+          "passed": 7,
+          "battery": {
+            "stable": {
+              "expect": "hold",
+              "action": [
+                0,
+                0,
+                0.0
+              ],
+              "pass": true
+            },
+            "hypoxaemic": {
+              "expect": "raise PEEP or FiO2",
+              "action": [
+                0,
+                0,
+                0.1
+              ],
+              "pass": true
+            },
+            "hyperoxic": {
+              "expect": "lower FiO2",
+              "action": [
+                0,
+                0,
+                -0.1
+              ],
+              "pass": true
+            },
+            "hypercapnic": {
+              "expect": "raise TV",
+              "action": [
+                0,
+                25,
+                0.0
+              ],
+              "pass": true
+            },
+            "hypocapnic": {
+              "expect": "lower TV",
+              "action": [
+                0,
+                -50,
+                0.0
+              ],
+              "pass": true
+            },
+            "high_peep": {
+              "expect": "lower PEEP",
+              "action": [
+                0,
+                0,
+                0.0
+              ],
+              "pass": false
+            },
+            "low_peep": {
+              "expect": "raise PEEP",
+              "action": [
+                2,
+                -50,
+                0.0
+              ],
+              "pass": true
+            },
+            "volutrauma": {
+              "expect": "cut TV",
+              "action": [
+                0,
+                -50,
+                0.0
+              ],
+              "pass": true
+            }
+          }
+        },
+        {
+          "checkpoint": "policy_track_a_ckpt500_seed4.pt",
+          "passed": 6,
+          "battery": {
+            "stable": {
+              "expect": "hold",
+              "action": [
+                0,
+                0,
+                0.0
+              ],
+              "pass": true
+            },
+            "hypoxaemic": {
+              "expect": "raise PEEP or FiO2",
+              "action": [
+                0,
+                0,
+                0.0
+              ],
+              "pass": false
+            },
+            "hyperoxic": {
+              "expect": "lower FiO2",
+              "action": [
+                0,
+                0,
+                -0.1
+              ],
+              "pass": true
+            },
+            "hypercapnic": {
+              "expect": "raise TV",
+              "action": [
+                0,
+                50,
+                0.0
+              ],
+              "pass": true
+            },
+            "hypocapnic": {
+              "expect": "lower TV",
+              "action": [
+                0,
+                -50,
+                0.0
+              ],
+              "pass": true
+            },
+            "high_peep": {
+              "expect": "lower PEEP",
+              "action": [
+                0,
+                0,
+                0.0
+              ],
+              "pass": false
+            },
+            "low_peep": {
+              "expect": "raise PEEP",
+              "action": [
+                2,
+                0,
+                0.0
+              ],
+              "pass": true
+            },
+            "volutrauma": {
+              "expect": "cut TV",
+              "action": [
+                0,
+                -50,
+                0.0
+              ],
+              "pass": true
+            }
+          }
+        }
+      ]
+    }
+  },
+  "battery_vs_selected_step": [
+    {
+      "family": "fine_checkpoint_every_500",
+      "approx_selected_step": 5750,
+      "battery_passed_mean": 6.6,
+      "high_peep_pass_rate": 0.0
+    },
+    {
+      "family": "coarse_checkpoint_every_10000",
+      "approx_selected_step": 10000,
+      "battery_passed_mean": 7.2,
+      "high_peep_pass_rate": 0.4
+    },
+    {
+      "family": "deployed",
+      "approx_selected_step": 27000,
+      "battery_passed_mean": 8.0,
+      "high_peep_pass_rate": 1.0
+    }
+  ],
+  "cases_learned_later_than_the_val_loss_optimum": [
+    "high_peep",
+    "hypoxaemic"
+  ],
+  "consequences": [
+    "Do NOT deploy the retrain: it regresses clinical behaviour on the criterion the deploy gate enforces.",
+    "reward_critique.layer2_multiseed selects at ~5,750 for BOTH arms, so its absolute battery numbers are a FLOOR. The paired contrast stays valid; 6.6/8 is not our reward's capability at convergence (the deployed model, same reward, scores 8/8).",
+    "Validation Q-loss, FQE value and the clinical battery disagree about which checkpoint is best. Model selection needs a criterion that is not purely TD-error."
+  ],
+  "timestamp": "2026-10-07T20:06:57.716002+00:00"
+}

@@ -78,3 +78,28 @@ frontend/.vite/
 
 # macOS Finder droppings — a stray file in samples/ breaks the upload instructions
 .DS_Store
+
+# ---- Reference system: IntelliLung's repository (third-party, 17 MB) ----
+# arXiv:2506.14375's code, cloned locally so `benchmark/tests/test_reward_critique.py`
+# can check our claims against their actual source. It is SOMEBODY ELSE'S repository
+# with its own .git/ and licence — committing it here would redistribute their code
+# under ours. The benchmark tests skip cleanly when it is absent, so a clean checkout
+# still passes. Clone it yourself if you want to re-run those checks.
+intellilung-advancing-mechanical-ventilation/
+
+# ---- Local report-authoring notes (the SRS report is NOT in this repository) ----
+# Working notes for the Technical Report document: what to add, what to correct, and
+# where. The report itself lives in Google Docs / .docx, so these are scratch notes
+# for one author, not project deliverables.
+REPORT_ADDITIONS.md
+REPORT_*.md
+*_NOTES.md
+*_SCRATCH.md
+NOTES.md
+TODO.md
+
+# ---- Generated benchmark artifact ----
+# comparison_table.md is RE-RENDERED from comparison_table.json on every build, so
+# tracking it means a diff on every run for no information gain. The JSON beside it
+# IS tracked, and `python -m benchmark.comparison_table` regenerates the markdown.
+benchmark/results/comparison_table.md

@@ -318,12 +318,36 @@ class SafetyComparison(BaseModel):
     n: Optional[int] = None
 
 
+class WaveformAblation(BaseModel):
+    """Track B's measured waveform contribution.
+
+    This exists because Track B has NO separate off-policy evaluation record —
+    its checkpoint is Track A's weights with an untouched ``[I | 0]`` adapter, so
+    there is no distinct policy to run FQE/DFQE/NWE against. What it does have is
+    this ablation, and the honest answer it gives is ``delta_v = 0.0``.
+
+    Surfacing it is the difference between a validation page that silently has
+    nothing to say about Track B and one that states a measured negative result.
+    """
+    delta_v: float
+    ci_low: Optional[float] = None
+    ci_high: Optional[float] = None
+    v_hat_18dim: Optional[float] = None
+    v_hat_12dim: Optional[float] = None
+    n_test_episodes: Optional[int] = None
+    n_test_transitions: Optional[int] = None
+    is_underpowered: bool = False
+    power_note: Optional[str] = None
+    timestamp: Optional[str] = None
+
+
 class ValidationResponse(BaseModel):
     track: str
     model: Optional[DeployedModel] = None
     baseline: Optional[OPEBaseline] = None
     estimators: list[OPEEstimator] = []
     safety: list[SafetyComparison] = []
+    waveform_ablation: Optional[WaveformAblation] = None
     cohort_stays: Optional[int] = None
     any_stale: bool = False
     caveat: str
