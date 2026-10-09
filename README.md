@@ -2,7 +2,7 @@
 
 Clinical decision support for mechanical ventilation. An offline reinforcement-learning policy
 trained on MIMIC-IV reads a ventilated patient's hourly state and recommends the next change to
-PEEP, tidal volume and FiO₂ — with a confidence score, an independent safety verdict, and an
+PEEP, tidal volume and FiO₂ with a confidence score, an independent safety verdict, and an
 explanation in clinical units.
 
 **Live demo:** <https://vent-assist-umber.vercel.app/>
@@ -11,8 +11,8 @@ explanation in clinical units.
 
 A ventilated ICU patient needs their settings reviewed roughly every hour. Too much tidal volume
 or PEEP injures the lung; too little oxygen or ventilation harms the patient directly. The
-evidence base (ARDSNet and successors) gives **population** targets — 6–8 mL/kg, a PEEP/FiO₂
-table — but not the per-patient, per-hour decision, so real practice varies widely between
+evidence base (ARDSNet and successors) gives **population** targets: 6–8 mL/kg, a PEEP/FiO₂
+table but not the per-patient, per-hour decision, so real practice varies widely between
 clinicians and between shifts. There is no tool that proposes the next setting change for *this*
 patient and shows its reasoning.
 
@@ -31,21 +31,19 @@ Every recommendation ships with four things a clinician can act on: a **confiden
 the policy's Q-value margin, the **top-3 alternative actions** with their margins, an
 **independent rule-based safety verdict** on the resulting settings (ARDSNet PEEP/FiO₂ floor,
 8 mL/kg ceiling, PEEP and FiO₂ limits), and the **three features that drove the decision**, in raw
-clinical units. "Hold" is one of the 125 actions and a real answer — the policy holds on ~69% of
-held-out states.
+clinical units.
 
 ## The model
 
-**HybridIQL + CQL** — implicit Q-learning with conservative Q-regularisation. Offline RL is the
-only honest choice here: you cannot explore ventilator settings on patients, so the policy must be
+**HybridIQL + CQL** : implicit Q-learning with conservative Q-regularisation. Offline RL is the
+only honest choice here: we cannot explore ventilator settings on patients, so the policy must be
 learned from retrospective data alone. IQL avoids bootstrapping from actions never observed, and
 CQL's conservatism term keeps the argmax inside the data distribution rather than in the
 extrapolation errors that make naive offline Q-learning unsafe.
 
 The reward is **action-causal**: it contains terms that depend directly on the action taken
 (`−action_cost(a)` and a causal bonus `λ·bonus(s, a)`) rather than only on the state that followed.
-This is the design decision that separates VentAssist from the published alternative — see the
-benchmark below.
+
 
 ## Data, training and validation
 
@@ -100,24 +98,17 @@ The deployed and multi-seed figures measure different policies under different e
 report them in separate blocks rather than averaging them into one headline.
 
 Two results stand without any reward model or learned dynamics, which is why we lead with them:
-the policy asks for **lower tidal volumes** than clinicians chose — the lung-protective direction,
-with an interval excluding zero across five seeds — and it is **2.8× more stable hour to hour**.
+the policy asks for **lower tidal volumes** than clinicians chose, the lung-protective direction,
+with an interval excluding zero across five seeds and it is **2.8× more stable hour to hour**.
 The claim we defend is **"no worse than the clinician, and measurably safer on the rules."**
 
-**We audit our own model selection, too.** Validation TD-error — the standard early-stopping
-criterion — turns out to be *negatively* rank-correlated with clinical competence across a run
-(−0.579, CI95 [−0.709, −0.450]): it picks a checkpoint scoring 6.6/8 on the clinical battery where
-a randomly chosen one averages 7.25/8. Our replacement scores the policy's response direction over
-eight physiological strata of real held-out states, is +0.568 [0.477, 0.659] correlated, and selects
-a full 8/8 model in 5 of 5 seeds — without ever seeing the gate's cases.
 
 ## Benchmark against the published alternative
 
 We compared against **IntelliLung** (arXiv:2506.14375), the current published RL ventilation
 system, using their own released source. The comparison is **paired and index-for-index across
 five seeds**: identical architecture, identical MDP, identical training budget, identical weight
-initialisation and identical minibatch stream — **only the reward function differs**. All four
-paired deltas exclude zero.
+initialisation and identical minibatch stream — **only the reward function differs**.
 
 | Measured on held-out patients | IntelliLung reward | **VentAssist reward** |
 | --- | --- | --- |
@@ -190,6 +181,3 @@ CITI human-subjects training and a signed Credentialed Health Data Use Agreement
 reads from a `files/` directory outside this repository; no cohort, MDP or log containing patient
 rows is tracked here.
 
-Final-year BSSE project and research prototype. It is **not a medical device and not for clinical
-use** — it is a decision *support* system evaluated retrospectively, and no recommendation it
-produces has been validated prospectively on a patient.
