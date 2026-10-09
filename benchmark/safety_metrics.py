@@ -38,64 +38,31 @@ from pathlib import Path
 
 import numpy as np
 
-from backend.mdp import action_space
 from backend.mdp import dataset as D
 from backend.mdp import normaliser as N
 from backend.pipeline import config
 from backend.pipeline.logging_utils import get_logger
+from backend.router import safety_rules as SR
 
 log = get_logger("bench_safety")
 
 RESULTS = Path(__file__).resolve().parent / "results"
 
-MAX_TV_ML_PER_KG = 8.0
-MAX_PEEP = 15.0
-MAX_FIO2 = 0.8
-HYPEROXIA_SPO2 = 96.0
-HYPEROXIA_FIO2 = 0.95
-
-# ARDSnet lower-PEEP/higher-FiO₂ table: the MINIMUM PEEP expected at each FiO₂.
-# Using a high FiO₂ with a PEEP below this is the classic "buying oxygenation with
-# oxygen instead of recruitment" error.
-_ARDSNET = [(0.30, 5), (0.40, 5), (0.50, 8), (0.60, 10),
-            (0.70, 10), (0.80, 14), (0.90, 14), (1.00, 18)]
-
-
-def ardsnet_min_peep(fio2: np.ndarray) -> np.ndarray:
-    """Minimum ARDSnet PEEP for each FiO₂ (step function, vectorised)."""
-    out = np.full(len(fio2), 5.0)
-    for f, p in _ARDSNET:
-        out = np.where(fio2 >= f - 1e-9, float(p), out)
-    return out
-
-
-def _resulting_settings(peep, tv, fio2, actions):
-    """Apply the (ΔPEEP, ΔTV, ΔFiO₂) actions to the current settings."""
-    am = action_space.ACTION_MAP
-    dp = np.array([am[int(a)][0] for a in actions], dtype=float)
-    dt = np.array([am[int(a)][1] for a in actions], dtype=float)
-    df = np.array([am[int(a)][2] for a in actions], dtype=float)
-    new_fio2 = np.clip(fio2 + df, action_space.FIO2_MIN, action_space.FIO2_MAX)
-    return peep + dp, tv + dt, new_fio2
-
-
-def _violations(peep, tv, fio2, spo2, weight_kg) -> dict:
-    """Violation rate for each rule over the resulting settings."""
-    tv_per_kg = tv / np.maximum(weight_kg, 1.0)
-    min_peep = ardsnet_min_peep(fio2)
-    rules = {
-        "volutrauma_tv_gt_8ml_per_kg": tv_per_kg > MAX_TV_ML_PER_KG,
-        "peep_gt_15": peep > MAX_PEEP,
-        "fio2_gt_0.8": fio2 > MAX_FIO2,
-        "needless_hyperoxia_fio2_ge_0.95_and_spo2_ge_96": (fio2 >= HYPEROXIA_FIO2)
-                                                          & (spo2 >= HYPEROXIA_SPO2),
-        "peep_below_ardsnet_min_for_fio2": peep < min_peep,
-    }
-    out = {k: round(float(np.mean(v)), 4) for k, v in rules.items()}
-    out["any_violation"] = round(float(np.mean(np.any(np.stack(list(rules.values())), axis=0))), 4)
-    # Needs airway-pressure waveform — stated, not imputed.
-    out["driving_pressure_gt_15"] = None
-    return out
+# The rules themselves live in backend/router/safety_rules.py, so backend/ can
+# check a violation rate without importing benchmark/ — the dependency points one
+# way only (benchmark/ reads backend/, never the reverse, because backend/ is the
+# serving path). They are re-exported here under their historical names because
+# runner.py, the selection criterion and the tests all import them from this
+# module; the logic is unchanged and the artifact is byte-identical.
+MAX_TV_ML_PER_KG = SR.MAX_TV_ML_PER_KG
+MAX_PEEP = SR.MAX_PEEP
+MAX_FIO2 = SR.MAX_FIO2
+HYPEROXIA_SPO2 = SR.HYPEROXIA_SPO2
+HYPEROXIA_FIO2 = SR.HYPEROXIA_FIO2
+_ARDSNET = SR._ARDSNET
+ardsnet_min_peep = SR.ardsnet_min_peep
+_resulting_settings = SR.resulting_settings
+_violations = SR.violations
 
 
 def evaluate(track: str = "a", write: bool = True) -> dict:

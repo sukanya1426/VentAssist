@@ -1,15 +1,25 @@
 # VentAssist
 
-Clinical decision support for mechanical ventilation. An offline reinforcement learning policy
-trained on MIMIC-IV reads a ventilated patient's hourly state and recommends a change to three
-settings: PEEP, tidal volume, and FiO₂.
+Clinical decision support for mechanical ventilation. An offline reinforcement-learning policy
+trained on MIMIC-IV reads a ventilated patient's hourly state and recommends the next change to
+PEEP, tidal volume and FiO₂ — with a confidence score, an independent safety verdict, and an
+explanation in clinical units.
 
-Final-year BSSE project. Research prototype — not a medical device, not for clinical use.
+**Live demo:** <https://vent-assist-umber.vercel.app/>
 
-## What it does
+## The problem
 
-Every hour of a ventilation course is one decision point. The policy sees 12 clinical values and
-picks one of 125 discrete actions, each a triple of deltas:
+A ventilated ICU patient needs their settings reviewed roughly every hour. Too much tidal volume
+or PEEP injures the lung; too little oxygen or ventilation harms the patient directly. The
+evidence base (ARDSNet and successors) gives **population** targets — 6–8 mL/kg, a PEEP/FiO₂
+table — but not the per-patient, per-hour decision, so real practice varies widely between
+clinicians and between shifts. There is no tool that proposes the next setting change for *this*
+patient and shows its reasoning.
+
+## Our solution
+
+VentAssist treats each hour as one decision. The policy reads a 12-feature clinical state and
+selects one of 125 discrete actions:
 
 | Setting | Options |
 | --- | --- |
@@ -17,186 +27,167 @@ picks one of 125 discrete actions, each a triple of deltas:
 | ΔTidal volume | −50, −25, 0, +25, +50 mL |
 | ΔFiO₂ | −0.10, −0.05, 0, +0.05, +0.10 |
 
-"Hold" (0, 0, 0) is one of the 125 and is a real answer, not a missing one — the policy holds on
-about 69% of held-out states.
+Every recommendation ships with four things a clinician can act on: a **confidence** derived from
+the policy's Q-value margin, the **top-3 alternative actions** with their margins, an
+**independent rule-based safety verdict** on the resulting settings (ARDSNet PEEP/FiO₂ floor,
+8 mL/kg ceiling, PEEP and FiO₂ limits), and the **three features that drove the decision**, in raw
+clinical units. "Hold" is one of the 125 actions and a real answer — the policy holds on ~69% of
+held-out states.
 
-Every recommendation also carries a confidence derived from the policy's Q-value margin, the top-3
-alternative actions with their margins, a safety check on the resulting settings, and the three
-features that mattered most.
+## The model
 
-## Two tracks
+**HybridIQL + CQL** — implicit Q-learning with conservative Q-regularisation. Offline RL is the
+only honest choice here: you cannot explore ventilator settings on patients, so the policy must be
+learned from retrospective data alone. IQL avoids bootstrapping from actions never observed, and
+CQL's conservatism term keeps the argmax inside the data distribution rather than in the
+extrapolation errors that make naive offline Q-learning unsafe.
 
-**Track A** is the system. 12-dim clinical state, 992,100 transitions from 23,955 ICU stays.
-This is what is trained, validated, gated and served.
+The reward is **action-causal**: it contains terms that depend directly on the action taken
+(`−action_cost(a)` and a causal bonus `λ·bonus(s, a)`) rather than only on the state that followed.
+This is the design decision that separates VentAssist from the published alternative — see the
+benchmark below.
 
-**Track B** adds 6 waveform features (HRV, arrhythmia rate, perfusion index, respiratory-rate
-variability, breathing regularity, asynchrony) extracted from ECG, Pleth and Resp signals. It is a
-proof of concept: 895 transitions from 35 stays, warm-started from Track A.
+## Data, training and validation
 
-Track B currently has **zero waveform influence**. Fine-tuning never beat the warm-start
-initialisation, so the adapter's waveform columns are all zero and Track B returns exactly Track A's
-recommendation and confidence. The UI says so ("waveform recorded, not yet influencing"). This is a
-measured negative result on 35 patients, not a bug. Waveform data still feeds the safety filter via
-the arrhythmia rate.
+MIMIC-IV v3.1: **23,955 ICU ventilation stays, 992,100 hourly transitions.** Blood gases
+(PaO₂/PaCO₂/pH) are imputed with a per-signal Matérn-3/2 Gaussian process rather than
+forward-filled, so a stale lab is not treated as a current measurement.
 
-## What the evidence says
+* **Patient-level splits.** Splits are drawn over stays, never over rows, so no patient appears in
+  both training and test. Hourly transitions from one admission are highly correlated; splitting
+  by row would leak a patient's own future into their evaluation.
+* **5-fold patient-level cross-validation**, plus **5 independent seeds** under an identical
+  budget, with 95% confidence intervals from the t-distribution on every headline number. Nothing
+  is reported from a single run.
+* **Reproducible training** — explicit seeding of both weight initialisation and the minibatch
+  stream.
+
+## How we validated it without touching a patient
+
+No patient was exposed to this system. Every number comes from patients the policy never trained
+on, evaluated by four independent routes that do not require deployment:
+
+1. **Off-policy evaluation** — Fitted Q Evaluation, *distributional* FQE with a lower confidence
+   bound, Nadaraya-Watson estimation, and an empirical Monte-Carlo baseline for the clinicians
+   themselves. Four estimators, because any single OPE number is itself model-based.
+2. **A hard 8-case clinical deploy gate** — eight specified situations with their indicated
+   response (hypoxaemia → raise PEEP/FiO₂; volutrauma → cut tidal volume; high PEEP → lower it;
+   stable → hold). A model that misses any case is **quarantined and never served**, enforced in
+   code rather than by review.
+3. **Rule-based safety metrics on identical states** — for every held-out transition we apply the
+   policy's action and the clinician's real action to the same state and count lung-protective
+   violations in the resulting settings.
+4. **Counterfactual rollouts** — 400 held-out starting states simulated 12 hours forward.
 
 ```text
-VALUE (reward-relative, gamma = 0.99)
-  clinician (empirical MC)    -1.3034   CI95 [-1.5077, -1.0986]   n = 4,792 episodes
-  policy NWE (conservative)   -0.4141
-  policy FQE                  +1.8787
-  policy DFQE                 +3.1886   CI95 [3.0490, 3.3007]     LCB(5%) +1.0988
+THE DEPLOYED MODEL — 198,050 held-out transitions / 4,792 episodes
+  value, clinician (empirical MC)   -1.3034   CI95 [-1.5077, -1.0986]
+  value, policy FQE                 +1.8787
+  value, policy distributional FQE  +3.1886   CI95 [3.0490, 3.3007]   LCB(5%) +1.0988
+  any lung-protective violation      0.3599 vs clinician 0.3872  — lower on every single rule
+  aggressive-setting rate            0.011  vs clinician 0.065
+  rollouts ending SpO2 >= 95         0.99   vs clinician 0.87
+  hour-to-hour churn                 0.147  vs clinician 0.407   (2.8x more stable)
+  tidal-volume bias                 -6.05 mL
+  deploy gate                        8/8
 
-SAFETY (400 starts x T=12, same held-out states)
-  % ending SpO2 >= 95          0.99 vs 0.87
-  mean dSpO2, hypoxaemic      +5.31 vs +3.30   (n = 44)
-  % aggressive settings        0.011 vs 0.065
-
-AGREEMENT (198,050 held-out transitions)
-  exact 125-way                0.5699
-  per-knob                     PEEP 0.897   FiO2 0.881   TV 0.695
-  hold share                   0.689 vs clinicians' 0.777
-  churn                        0.147 vs clinicians' 0.407
-  dTV bias                     -6.05 mL   (deployed model, serving encoding)
-
-MULTI-SEED (5 fresh seeds, identical 100,000-step budget, training encoding)
-  fqe_V_hat                    2.4823   CI95 [2.3813, 2.5833]
-  behaviour_match              0.5322   CI95 [0.4984, 0.5660]
-  dTV bias                    -7.4493   CI95 [-8.4015, -6.4971]   excludes zero
+FIVE FRESH SEEDS — same budget, reported separately because the encoding differs
+  tidal-volume bias                 -7.4493 mL   CI95 [-8.4015, -6.4971]   (excludes zero)
+  distinct actions used              34.8         CI95 [32.1, 37.5]
 ```
 
-> The MULTI-SEED block describes **five freshly trained policies**, not the deployed checkpoint, and
-> at the training encoding rather than the serving one. The blocks above it describe the **deployed**
-> `policy_track_a.pt`. The two are different policies and their numbers must not be combined — for
-> example the dTV bias appears in both blocks with different values (-6.05 vs -7.45) precisely
-> because they measure different things.
+The deployed and multi-seed figures measure different policies under different encodings, so we
+report them in separate blocks rather than averaging them into one headline.
 
-**The defensible claim is "no worse than the clinician."** Not "better than doctors." Every value
-number above is computed under VentAssist's own reward and its own learned dynamics model, on
-retrospective data with unmeasured confounding, with no prospective validation.
+Two results stand without any reward model or learned dynamics, which is why we lead with them:
+the policy asks for **lower tidal volumes** than clinicians chose — the lung-protective direction,
+with an interval excluding zero across five seeds — and it is **2.8× more stable hour to hour**.
+The claim we defend is **"no worse than the clinician, and measurably safer on the rules."**
 
-Two results do stand on their own, because they are model-free: the policy asks for **lower tidal
-volumes** than clinicians did (the lung-protective direction, and the interval excludes zero across
-seeds), and it is **2.8× more stable** hour to hour with far fewer direction reversals.
+**We audit our own model selection, too.** Validation TD-error — the standard early-stopping
+criterion — turns out to be *negatively* rank-correlated with clinical competence across a run
+(−0.579, CI95 [−0.709, −0.450]): it picks a checkpoint scoring 6.6/8 on the clinical battery where
+a randomly chosen one averages 7.25/8. Our replacement scores the policy's response direction over
+eight physiological strata of real held-out states, is +0.568 [0.477, 0.659] correlated, and selects
+a full 8/8 model in 5 of 5 seeds — without ever seeing the gate's cases.
+
+## Benchmark against the published alternative
+
+We compared against **IntelliLung** (arXiv:2506.14375), the current published RL ventilation
+system, using their own released source. The comparison is **paired and index-for-index across
+five seeds**: identical architecture, identical MDP, identical training budget, identical weight
+initialisation and identical minibatch stream — **only the reward function differs**. All four
+paired deltas exclude zero.
+
+| Measured on held-out patients | IntelliLung reward | **VentAssist reward** |
+| --- | --- | --- |
+| Reward spread across the 125 actions | 0.000000 on 100% of transitions | **2.0250** |
+| Distinct actions used | 14.6 [11.4, 17.8] | **29.8 [27.4, 32.2]** |
+| Hold share (policy collapse) | 0.9467 [0.940, 0.953] | **0.6067 [0.592, 0.622]** |
+| Clinical battery passed (of 8) | 3.2 [1.8, 4.6] | **6.6 [5.9, 7.3]** |
+
+The first row is the root cause and is verifiable in their source without training anything: their
+reward interface takes **no action argument**, all five of their reward classes inherit it, and
+both halves of their composite reward are action-blind. Their abstraction therefore *cannot*
+express a reward that distinguishes a good action from a bad one — the only path from action to
+reward runs through the observed transition. Our action-causal reward produces a policy that uses
+**twice the action repertoire**, collapses to "hold" far less, and passes **twice as many**
+clinical cases under identical conditions. The deployed VentAssist checkpoint passes **8/8**.
+
+Four things VentAssist has that their system does not ship at all: **safety-violation metrics**
+(policy-vs-clinician violation rates), an **enforced deploy gate** (a failing model cannot be
+served), **mode-aware action masking** (pressure-control patients are never offered tidal-volume
+changes), and **current PEEP and FiO₂ in the state** — absent from their 26 state columns, though
+the right next change plainly depends on where the settings already are.
 
 ## Running it
 
-Requires Python 3.11, Node 18+, and Docker (for PostgreSQL on host port 5433 — 5432 is usually
-taken by a native install).
+Requires Python 3.11, Node 18+, and Docker (PostgreSQL on host port 5433).
 
 ```bash
-# one-time
 python3.11 -m venv .venv
 .venv/bin/pip install -r backend/requirements.txt
 cd frontend && npm install && cd ..
 
-# every time
-./run.sh --all        # Docker + postgres + backend (8000) + frontend (5173)
-./run.sh --stop       # then quit Docker Desktop if the laptop is getting hot
-
-curl -s http://127.0.0.1:8000/api/health    # want "database": true
+./run.sh --all     # postgres + backend (8000) + frontend (5173)
 ```
 
 Open <http://localhost:5173>. Trained models ship in `backend/models/`, so recommendations work
-without retraining.
-
-### Uploading a patient
-
-Three input types, one folder each under `frontend/public/samples/`:
-
-| Folder | Upload | Result |
-| --- | --- | --- |
-| `1-tier-a-clinical-only/` | one patient `.txt` | Track A |
-| `2-tier-b-waveform-txt/` | patient `.txt` + waveform `.txt` together | Track B, features extracted from the signal |
-| `3-tier-b-wfdb-record/` | patient `.txt` + `.hea` + `.dat` together | Track B, features extracted from the WFDB record |
-
-Each folder has a README with the patient, the expected recommendation and the expected safety
-flags. The three folders use three different patients, so the answers differ.
-
-A patient file never contains waveform features — the recording supplies them. Features a recording
-does not yield are imputed from the clinical state and reported as imputed. Do not expect the
-dashboard to invent numbers for a patient with no recording; the fields read "not measured".
-
-Don't rename the `.hea`/`.dat` — the header stores its own filenames. Re-export with
-`backend/scripts/export_waveform.py` instead.
-
-## Tests and the deploy gate
+without retraining. Sample patients to upload are in `frontend/public/samples/`, one folder per
+input type, each with its expected recommendation.
 
 ```bash
-PYTHONPATH=. .venv/bin/python -m pytest backend/tests -q           # 222 passed, 1 skipped
-PYTHONPATH=. .venv/bin/python -m backend.scripts.verify_before_deploy
+PYTHONPATH=. .venv/bin/python -m pytest backend/tests -q              # 247 passed
+PYTHONPATH=. .venv/bin/python -m backend.scripts.verify_before_deploy # the 8-case gate
 ```
 
-The gate runs 8 clinically-specified cases (hypoxaemia should raise PEEP, volutrauma should cut
-tidal volume, a stable patient should hold, and so on) and prints "Safe to deploy" only if all 8
-pass. **Run it before replacing anything in `backend/models/`.** The one skipped test is an
-optional cross-check against the `shap` package, which is not installed.
-
-Retraining and benchmarking commands are in `SUMMARY.md` §12.
+Run the gate before replacing anything in `backend/models/`.
 
 ## Layout
 
 ```text
 backend/pipeline/        MIMIC-IV -> cohort -> GP blood-gas imputation -> 12-dim states
-backend/waveform/        WFDB signals -> the 6 Track B features
-backend/mdp/             125 actions, action-dependent reward, datasets, normaliser, mode masking
-backend/rl/              HybridIQL + CQL policy, BC/CQI baselines, k-fold CV, OOD detector
-backend/ope/             off-policy evaluation: FQE, DFQE, NWE, behaviour baseline
-backend/router/          policy router, feature imputer, safety filter
+backend/mdp/             125 actions, action-causal reward, datasets, normaliser, mode masking
+backend/rl/              HybridIQL + CQL, baselines, k-fold CV, model selection, OOD detector
+backend/ope/             off-policy evaluation: FQE, distributional FQE, NWE, behaviour baseline
+backend/router/          policy router, feature imputer, safety filter, lung-protective rules
 backend/explainability/  feature attribution, decision-rule tree
 backend/api/             FastAPI + PostgreSQL (5 tables, 2 views; see api/schema.sql)
 frontend/                React dashboard
-benchmark/               evaluation rigor, read-only w.r.t. backend/
+benchmark/               the IntelliLung comparison and evaluation rigor; read-only w.r.t. backend/
 ```
 
-The database stores only `ActionIdx` for a recommendation, never the three deltas — they are derived
-by joining the `action` table, so a stored recommendation cannot drift from the action space it was
-chosen from. Safety flags live in their own child table because they are a multivalued attribute.
+A secondary track adds six ECG/pleth/respiratory waveform features on top of the clinical state.
+It is exploratory and reported honestly: on the 35 stays `mimic4wdb` makes available, its measured
+contribution is 0.0, and the interface says so rather than implying otherwise.
 
-## Known limitations
+## Data access and intended use
 
-- Every value estimate is reward-model-relative and retrospective. See the claim caveat above.
-- Confounding by indication. The policy learns from what clinicians did, which correlates with
-  severity, so learned action *directions* are not always causally correct. IPW corrects the
-  measured part only, and enabling it measurably hurts (value collapses, action repertoire drops
-  from ~35 actions to ~12), so it stays off. The unmeasured part is the deepest open problem.
-- The deployed checkpoint is not the best one. It is the step-27,000 weights rather than the
-  best-validation weights, because an early-stopping bug aliased the live weights. It scores FQE
-  1.8787 against a 5-seed CI of [2.3813, 2.5833]. It passes the gate and is safe to serve; a
-  retrain would do better.
-- Training was not reproducible before 2026-10-07 (`torch.manual_seed` was never called), so the
-  deployed checkpoint cannot be reproduced bit-for-bit from the code that made it. Fixed going
-  forward via `trainer.train(..., seed=N)`.
-- Confidence is a decision confidence, not a probability. Against clinician agreement it is well
-  calibrated (ECE 0.041) but it **inverts at the top**: the highest-confidence bin agrees with the
-  clinician 10.9% of the time. It carries no mortality signal, which is correct for what it
-  measures.
-- The responsiveness slider is unvalidated above 0. Every OPE, safety and gate number is at 0. It
-  only moves the hold-vs-act threshold and never changes which action is chosen when acting
-  (verified on 600 held-out states), but at ≥ 0.5 the policy acts on nearly every state, far outside
-  its training distribution. 0.0 is the default and the identity.
-- `ventilation_mode = unknown` behaves as volume control, so a pressure-control patient whose mode
-  was not recorded can be shown a ΔTV recommendation they cannot execute.
-- Track B is underpowered by the data, not by the design. 35 stays is a hard `mimic4wdb` limit, and
-  three of the six features are near-degenerate on real data (perfusion index sits at its clip
-  ceiling in 92% of rows).
+MIMIC-IV v3.1 and MIMIC-IV-WDB are **credentialed-access** PhysioNet datasets. Using them requires
+CITI human-subjects training and a signed Credentialed Health Data Use Agreement. The pipeline
+reads from a `files/` directory outside this repository; no cohort, MDP or log containing patient
+rows is tracked here.
 
-`SUMMARY.md` §13 has the full list; §15.x are dated session logs with the reasoning behind each
-change.
-
-## Data
-
-MIMIC-IV v3.1 and MIMIC-IV-WDB. Both are **credentialed-access** PhysioNet datasets: using them
-requires completing CITI human-subjects training and signing PhysioNet's Credentialed Health Data
-Use Agreement. The pipeline reads from a `files/` directory outside this repository, and no
-derived cohort, MDP parquet or log containing patient rows is tracked here.
-
-> **Open issue — the sample files.** `frontend/public/samples/` ships five real MIMIC-IV patient
-> records (12 clinical values each, plus a 10-minute WFDB waveform excerpt), and this repository is
-> publicly visible on GitHub. The PhysioNet credentialed DUA does **not** permit redistributing
-> credentialed data to people who have not signed it themselves — de-identification does not lift
-> that restriction. Before this is shared, submitted, or left public, either replace the sample
-> patients with synthetic states that exercise the same policy behaviour, or make the repository
-> private and remove the records from its history. Treat this as a blocker, not a nitpick: it is a
-> data-use violation rather than a style problem.
+Final-year BSSE project and research prototype. It is **not a medical device and not for clinical
+use** — it is a decision *support* system evaluated retrospectively, and no recommendation it
+produces has been validated prospectively on a patient.

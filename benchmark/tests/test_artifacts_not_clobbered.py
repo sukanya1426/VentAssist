@@ -33,6 +33,7 @@ from benchmark import confidence_calibration as CC
 from benchmark import reward_critique as RC
 from benchmark import runner as RN
 from benchmark import safety_metrics as SM
+from benchmark import selection_criterion as SELC
 from benchmark import split_compat as SC
 
 RESULTS = Path(__file__).resolve().parents[1] / "results"
@@ -51,6 +52,8 @@ WRITERS = {
     "reward_critique.layer1": RC.layer1,
     "reward_critique.layer2": RC.layer2,
     "reward_critique.layer2_multiseed": RC.layer2_multiseed,
+    "selection_criterion.evaluate": SELC.evaluate,
+    "selection_criterion.recompute": SELC.recompute,
 }
 
 
@@ -88,6 +91,8 @@ def test_no_benchmark_test_calls_a_writer_without_disabling_the_write():
              ("RC.layer2_multiseed(", "reward_critique"),
              ("CT.build(", "comparison_table"),
              ("CB.evaluate(", "checkpoint_battery"),
+             ("SELC.evaluate(", "selection_criterion"),
+             ("SELC.recompute(", "selection_criterion"),
              ("FP.evaluate(", "fragility_probe")]
     offenders = []
     for f in sorted(tests_dir.glob("test_*.py")):

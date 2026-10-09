@@ -69,3 +69,28 @@ propensity:
 # requires a full rebuild → retrain → verify_before_deploy via run_track_a_pipeline.
 imputation:
   method: matern
+
+# Checkpoint selection (§17's open problem). `val_q_loss` is the incumbent and the
+# DEFAULT: early stopping minimises held-out TD-error, which is how every existing
+# checkpoint — including the deployed one — was chosen. Leaving it alone keeps
+# training bit-identical.
+#
+# `clinical_reflex` selects on backend/rl/selection.py instead: the macro-averaged
+# rate at which the policy moves in the clinically-indicated direction across eight
+# physiological strata of the validation split's real states, with hard guards on
+# repertoire collapse and on violating lung-protective rules more often than the
+# clinician. It exists because val_q_loss, FQE value and the 8-case clinical battery
+# pick three different checkpoints of the same run, and val_q_loss picks the worst
+# of the three clinically: it stops at step ~5,750 (battery 6.60/8) while the
+# deployed step-~27,000 artifact scores 8.00/8. The two cases it stops short of —
+# `high_peep` and `hypoxaemic` — are safety reflexes acquired late, long after the
+# TD-error has flattened. Evidence: benchmark/results/selection_criterion_track_a.json
+# and benchmark/results/checkpoint_battery_track_a.json.
+#
+# Switching this changes which checkpoint is promoted, so it requires
+# retrain -> verify_before_deploy. It must NEVER be set to the deploy gate's
+# battery: that would have the gate certify a choice it had itself made.
+selection:
+  criterion: val_q_loss
+  min_distinct_actions: 10
+  min_stratum_n: 50

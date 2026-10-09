@@ -14,6 +14,7 @@ import argparse
 import copy
 import json
 from datetime import datetime, timezone
+from typing import Callable
 
 import numpy as np
 import torch
@@ -59,6 +60,21 @@ def _to_batch(d: dict, idx: np.ndarray, device: str) -> Batch:
     )
 
 
+def _selection_criterion(cfg: dict) -> str:
+    """Which criterion early stopping selects on. Defaults to the historical one.
+
+    ``val_q_loss`` is the incumbent and the default, so an untouched config trains
+    exactly as it did before and the deployed artifact's provenance is unchanged.
+    ``clinical_reflex`` selects on ``backend/rl/selection.py`` instead — see §17 and
+    that module's docstring for why TD-error is the wrong criterion here.
+    """
+    c = str((cfg.get("selection") or {}).get("criterion", "val_q_loss"))
+    if c not in ("val_q_loss", "clinical_reflex"):
+        raise ValueError(f"unknown selection.criterion {c!r}; expected "
+                         "'val_q_loss' or 'clinical_reflex'")
+    return c
+
+
 def _val_q_loss(model: HybridIQL, d: dict, val_idx: np.ndarray, device: str) -> float:
     if len(val_idx) == 0:
         return float("nan")
@@ -72,12 +88,21 @@ def _val_q_loss(model: HybridIQL, d: dict, val_idx: np.ndarray, device: str) -> 
         return float(((q_taken - y) ** 2).mean())
 
 
-def _normalise(d: dict, track: str) -> dict:
-    """Z-score the stored raw states with the track's normaliser."""
+def _normalise(d: dict, track: str, keep_raw: bool = False) -> dict:
+    """Z-score the stored raw states with the track's normaliser.
+
+    ``keep_raw`` stashes the pre-normalisation states under ``raw_states``, which
+    the clinical-reflex selection criterion needs: its thresholds are in clinical
+    units, so it cannot read the z-scored array the policy is fitted on. It costs
+    ~48 MB on Track A, so it is opt-in and only the clinical criterion asks for it
+    — the default path allocates exactly what it did before.
+    """
     from backend.mdp import normaliser as N
     nf = "normaliser_stats.json" if track == "a" else "normaliser_stats_track_b.json"
     stats = N.load(config.MODEL_PATH / nf)
     order = d["feature_order"]
+    if keep_raw:
+        d["raw_states"] = d["states"].copy()
     d["states"] = N.transform(d["states"], stats, order).astype(np.float32)
     d["next_states"] = N.transform(d["next_states"], stats, order).astype(np.float32)
     return d
@@ -86,6 +111,7 @@ def _normalise(d: dict, track: str) -> dict:
 def _run_training(d: dict, train_idx: np.ndarray, val_idx: np.ndarray,
                   cfg: dict, steps: int | None, device: str,
                   tag: str = "", seed: int | None = None,
+                  on_checkpoint: Callable[[dict], None] | None = None,
                   ) -> tuple[HybridIQL, float, dict]:
     """Core HybridIQL training loop with early stopping.
 
@@ -105,6 +131,14 @@ def _run_training(d: dict, train_idx: np.ndarray, val_idx: np.ndarray,
     ``seed=None`` is the default and leaves the historical behaviour exactly as
     it was (minibatches from ``SPLIT_SEED``, torch unseeded), so the deployed
     pipeline and the deploy gate are untouched by this parameter's existence.
+
+    ``on_checkpoint`` is an observation hook, called once per checkpoint with the
+    step, the live model, the validation score and whether that score was selected
+    as the new best. It exists so ``benchmark/selection_criterion.py`` can trace
+    the criteria of THIS loop rather than reimplementing it — a model-selection
+    experiment that ran against a copy of the training loop would be measuring the
+    copy. It must not mutate the model; nothing in the loop reads its return value,
+    and leaving it ``None`` (the default) is a strict no-op.
     """
     total_steps = steps if steps is not None else cfg["total_steps"]
     if seed is not None:
@@ -149,8 +183,50 @@ def _run_training(d: dict, train_idx: np.ndarray, val_idx: np.ndarray,
                  tag, init_from, provenance["init_from_state_dim"],
                  provenance["init_from_n_transitions"])
 
+    criterion = _selection_criterion(cfg)
+    sel_cfg = cfg.get("selection") or {}
+    if criterion == "clinical_reflex":
+        from backend.rl import selection as SEL
+        if "raw_states" not in d:
+            raise RuntimeError(
+                "selection.criterion is 'clinical_reflex' but the dataset carries no "
+                "`raw_states`. Load it with `_normalise(..., keep_raw=True)`: the "
+                "criterion's thresholds are in clinical units and cannot be applied "
+                "to the z-scored array the policy is fitted on.")
+        _raw_val = d["raw_states"][val_idx]
+        _w_val = np.asarray(d["weight_kg"], dtype=float)[val_idx]
+        _clin_val = d["actions"][val_idx]
+        _feats = list(d["feature_order"])
+
+    def _selection_score(m: HybridIQL, vl: float, fallback: float) -> tuple[float, dict]:
+        """The scalar early stopping minimises, plus what produced it.
+
+        Negated CRS, so "lower is better" holds for both criteria and the loop
+        below is one code path rather than two. A candidate that fails a guard
+        scores ``inf`` — disqualified outright, never merely penalised, so a
+        collapsed or unsafe checkpoint cannot be selected however high its CRS.
+        """
+        if criterion == "val_q_loss":
+            sc = vl if vl == vl else fallback
+            return sc, {"val_q_loss": sc}
+        cand = SEL.score(m, _raw_val, d["states"][val_idx], _feats, _w_val,
+                         clinician_actions=_clin_val, val_q_loss=vl,
+                         min_distinct_actions=int(sel_cfg.get(
+                             "min_distinct_actions", SEL.MIN_DISTINCT_ACTIONS)),
+                         min_stratum_n=int(sel_cfg.get(
+                             "min_stratum_n", SEL.MIN_STRATUM_N)))
+        sc = (-float(cand["crs"]) if cand["selectable"] and cand["crs"] is not None
+              else float("inf"))
+        return sc, {"val_q_loss": vl, "crs": cand["crs"],
+                    "selectable": cand["selectable"],
+                    "guards_failed": [n for n, g in cand["guards"].items()
+                                      if not g["pass"]],
+                    "hold_share": cand["hold_share"],
+                    "n_distinct_actions": cand["n_distinct_actions"]}
+
     best_val, best_sd, stale = float("inf"), _snapshot(model), 0
     best_step = 0
+    best_detail: dict = {}
     # Score the INITIALISATION before any gradient step, so "do not fine-tune at
     # all" is a candidate that early stopping can actually select. For a random
     # init this is a formality (the score is terrible and the first real checkpoint
@@ -159,12 +235,13 @@ def _run_training(d: dict, train_idx: np.ndarray, val_idx: np.ndarray,
     # worse, never left alone. If the validation loss rises monotonically from
     # here, the honest result is that fine-tuning on this cohort does not help.
     if init_from and len(val_idx):
-        best_val = _val_q_loss(model, d, val_idx, device)
+        _vl0 = _val_q_loss(model, d, val_idx, device)
+        best_val, best_detail = _selection_score(model, _vl0, float("inf"))
         if best_val != best_val:                      # NaN → unusable
             best_val = float("inf")
         else:
-            log.info("%sstep 0 (warm-start baseline, no fine-tuning) | val_q=%.4f",
-                     tag, best_val)
+            log.info("%sstep 0 (warm-start baseline, no fine-tuning) | %s",
+                     tag, best_detail)
     # Offset rather than replaced, so seed=None reproduces the historical stream
     # and each seed draws a genuinely different minibatch sequence.
     rng = np.random.default_rng(config.SPLIT_SEED
@@ -175,20 +252,38 @@ def _run_training(d: dict, train_idx: np.ndarray, val_idx: np.ndarray,
         last = model.update(_to_batch(d, bi, device))
         if (step + 1) % ckpt_every == 0 or step == total_steps - 1:
             vl = _val_q_loss(model, d, val_idx, device)
-            score = vl if vl == vl else last["q_loss"]
-            log.info("%sstep %d | v=%.4f q=%.4f pi=%.4f | val_q=%.4f",
+            score, detail = _selection_score(model, vl, last["q_loss"])
+            log.info("%sstep %d | v=%.4f q=%.4f pi=%.4f | %s=%s",
                      tag, step + 1, last["v_loss"], last["q_loss"],
-                     last["pi_loss"], score)
-            if score < best_val:
+                     last["pi_loss"], criterion,
+                     detail.get("crs") if criterion == "clinical_reflex"
+                     else round(score, 4))
+            improved = score < best_val
+            if improved:
                 best_val, best_sd, stale = score, _snapshot(model), 0
-                best_step = step + 1
+                best_step, best_detail = step + 1, detail
             else:
                 stale += ckpt_every
-                if stale >= cfg["early_stop_patience"]:
-                    log.info("%searly stop @ %d", tag, step + 1)
-                    break
+            if on_checkpoint is not None:
+                on_checkpoint({"step": step + 1, "model": model, "val_q_loss": vl,
+                               "score": score, "improved": bool(improved),
+                               "best_val_so_far": best_val, "losses": dict(last),
+                               "criterion": criterion, "detail": detail})
+            if not improved and stale >= cfg["early_stop_patience"]:
+                log.info("%searly stop @ %d", tag, step + 1)
+                break
     model.load_state_dict(best_sd)
     provenance["selected_step"] = best_step
+    # Self-describing: a checkpoint must say which criterion chose it, so a reader
+    # never has to infer it from logs (the §15.x deploy-gate lesson).
+    provenance["selection_criterion"] = criterion
+    if best_detail:
+        provenance["selection_detail"] = {k: v for k, v in best_detail.items()
+                                          if k != "model"}
+    if criterion == "clinical_reflex" and best_val == float("inf"):
+        log.warning("%sNO checkpoint passed the clinical-reflex guards — the returned "
+                    "model is the initialisation. Train differently rather than "
+                    "promoting the least-bad checkpoint.", tag)
     if init_from and best_step == 0:
         log.warning("%sfine-tuning did NOT improve validation loss — keeping the "
                     "warm-start initialisation unchanged (selected_step=0). On this "
@@ -227,7 +322,8 @@ def train_kfold(track: str, k: int = 5, steps: int | None = None,
     """
     cfg_name = "track_a_config.yaml" if track == "a" else "track_b_config.yaml"
     cfg = yaml.safe_load((config.REPO_ROOT / "backend" / "configs" / cfg_name).read_text())
-    d = _normalise(D.load_mdp(track), track)
+    d = _normalise(D.load_mdp(track), track,
+                   keep_raw=_selection_criterion(cfg) == "clinical_reflex")
     sid = d["stay_id"]
     uniq = np.unique(sid)
     folds = splits.make_kfold(uniq, k=k, name=f"kfold_split_track_{track}.json")
@@ -279,7 +375,8 @@ def train(track: str, steps: int | None = None, device: str = "cpu",
           seed: int | None = None) -> dict:
     cfg_name = "track_a_config.yaml" if track == "a" else "track_b_config.yaml"
     cfg = yaml.safe_load((config.REPO_ROOT / "backend" / "configs" / cfg_name).read_text())
-    d = _normalise(D.load_mdp(track), track)
+    d = _normalise(D.load_mdp(track), track,
+                   keep_raw=_selection_criterion(cfg) == "clinical_reflex")
 
     train_idx = np.where(d["split"] == "train")[0]
     val_idx = np.where(d["split"] == "val")[0]
@@ -312,8 +409,9 @@ def train(track: str, steps: int | None = None, device: str = "cpu",
                 # it to tell a nested comparison from a confounded one.
                 **provenance,
                 "config_snapshot": cfg}, out)
-    log.info("Saved HybridIQL → %s (best val_q=%.4f, lam_causal=%.2f, cql_alpha=%.2f, "
-             "n_train=%d)", out, best_val, lam_causal, cql_alpha, len(train_idx))
+    log.info("Saved HybridIQL → %s (criterion=%s, best score=%.4f, lam_causal=%.2f, "
+             "cql_alpha=%.2f, n_train=%d)", out, provenance.get("selection_criterion"),
+             best_val, lam_causal, cql_alpha, len(train_idx))
 
     # --- baselines (BC + CQI) on train split ---
     Xtr, Atr = d["states"][train_idx], d["actions"][train_idx]
