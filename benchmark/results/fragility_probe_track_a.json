@@ -1,0 +1,632 @@
+{
+  "track": "a",
+  "question": "Does sweeping a clinically unrelated feature flip the FiO2-weaning decision on an unambiguously hyperoxic patient?",
+  "base_state": {
+    "PEEP": 8,
+    "TV": 480,
+    "FiO2": 0.7,
+    "SpO2": 100,
+    "PaO2": 90,
+    "PaCO2": 44,
+    "pH": 7.37,
+    "HR": 92,
+    "SBP": 118,
+    "RR": 22,
+    "RASS": -2,
+    "Temp": 37.2
+  },
+  "indicated_action": "wean FiO2 (SpO2 100 on FiO2 0.70)",
+  "encoding": "serving (transform_inference)",
+  "per_feature": {
+    "PaO2": {
+      "n_values": 9,
+      "n_weaning": 8,
+      "n_flips": 1,
+      "flip_boundaries": [
+        {
+          "from": 200,
+          "to": 300,
+          "weans_before": true,
+          "weans_after": false
+        }
+      ],
+      "anomalous_values": [
+        300
+      ],
+      "clinically_expected_to_respond": false,
+      "expected_reason": null,
+      "sweep": [
+        {
+          "value": 70,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        },
+        {
+          "value": 80,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        },
+        {
+          "value": 90,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        },
+        {
+          "value": 100,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        },
+        {
+          "value": 120,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        },
+        {
+          "value": 140,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        },
+        {
+          "value": 160,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        },
+        {
+          "value": 200,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        },
+        {
+          "value": 300,
+          "action": [
+            0,
+            0,
+            0.0
+          ],
+          "weans_fio2": false
+        }
+      ]
+    },
+    "PaCO2": {
+      "n_values": 6,
+      "n_weaning": 4,
+      "n_flips": 1,
+      "flip_boundaries": [
+        {
+          "from": 55,
+          "to": 70,
+          "weans_before": true,
+          "weans_after": false
+        }
+      ],
+      "anomalous_values": [
+        70
+      ],
+      "clinically_expected_to_respond": true,
+      "expected_reason": "hypocapnia warrants lowering TV and hypercapnia raising it; the single-action space forces a choice between correcting CO2 and weaning oxygen",
+      "sweep": [
+        {
+          "value": 25,
+          "action": [
+            0,
+            -50,
+            -0.1
+          ],
+          "weans_fio2": true
+        },
+        {
+          "value": 35,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        },
+        {
+          "value": 44,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        },
+        {
+          "value": 55,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        },
+        {
+          "value": 70,
+          "action": [
+            0,
+            25,
+            0.0
+          ],
+          "weans_fio2": false
+        },
+        {
+          "value": 90,
+          "action": [
+            0,
+            25,
+            0.0
+          ],
+          "weans_fio2": false
+        }
+      ]
+    },
+    "pH": {
+      "n_values": 6,
+      "n_weaning": 3,
+      "n_flips": 1,
+      "flip_boundaries": [
+        {
+          "from": 7.37,
+          "to": 7.45,
+          "weans_before": true,
+          "weans_after": false
+        }
+      ],
+      "anomalous_values": [
+        7.45
+      ],
+      "clinically_expected_to_respond": false,
+      "expected_reason": null,
+      "sweep": [
+        {
+          "value": 7.1,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        },
+        {
+          "value": 7.25,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        },
+        {
+          "value": 7.37,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        },
+        {
+          "value": 7.45,
+          "action": [
+            0,
+            0,
+            0.0
+          ],
+          "weans_fio2": false
+        },
+        {
+          "value": 7.55,
+          "action": [
+            0,
+            0,
+            0.0
+          ],
+          "weans_fio2": false
+        },
+        {
+          "value": 7.7,
+          "action": [
+            0,
+            0,
+            0.0
+          ],
+          "weans_fio2": false
+        }
+      ]
+    },
+    "HR": {
+      "n_values": 7,
+      "n_weaning": 6,
+      "n_flips": 1,
+      "flip_boundaries": [
+        {
+          "from": 50,
+          "to": 70,
+          "weans_before": false,
+          "weans_after": true
+        }
+      ],
+      "anomalous_values": [
+        50
+      ],
+      "clinically_expected_to_respond": false,
+      "expected_reason": null,
+      "sweep": [
+        {
+          "value": 50,
+          "action": [
+            0,
+            0,
+            0.0
+          ],
+          "weans_fio2": false
+        },
+        {
+          "value": 70,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        },
+        {
+          "value": 92,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        },
+        {
+          "value": 110,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        },
+        {
+          "value": 130,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        },
+        {
+          "value": 150,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        },
+        {
+          "value": 180,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        }
+      ]
+    },
+    "SBP": {
+      "n_values": 6,
+      "n_weaning": 6,
+      "n_flips": 0,
+      "flip_boundaries": [],
+      "anomalous_values": [],
+      "clinically_expected_to_respond": false,
+      "expected_reason": null,
+      "sweep": [
+        {
+          "value": 70,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        },
+        {
+          "value": 90,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        },
+        {
+          "value": 118,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        },
+        {
+          "value": 140,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        },
+        {
+          "value": 170,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        },
+        {
+          "value": 200,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        }
+      ]
+    },
+    "RR": {
+      "n_values": 6,
+      "n_weaning": 6,
+      "n_flips": 0,
+      "flip_boundaries": [],
+      "anomalous_values": [],
+      "clinically_expected_to_respond": false,
+      "expected_reason": null,
+      "sweep": [
+        {
+          "value": 8,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        },
+        {
+          "value": 12,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        },
+        {
+          "value": 22,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        },
+        {
+          "value": 30,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        },
+        {
+          "value": 40,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        },
+        {
+          "value": 50,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        }
+      ]
+    },
+    "RASS": {
+      "n_values": 6,
+      "n_weaning": 6,
+      "n_flips": 0,
+      "flip_boundaries": [],
+      "anomalous_values": [],
+      "clinically_expected_to_respond": false,
+      "expected_reason": null,
+      "sweep": [
+        {
+          "value": -5,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        },
+        {
+          "value": -4,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        },
+        {
+          "value": -2,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        },
+        {
+          "value": 0,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        },
+        {
+          "value": 2,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        },
+        {
+          "value": 4,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        }
+      ]
+    },
+    "Temp": {
+      "n_values": 6,
+      "n_weaning": 6,
+      "n_flips": 0,
+      "flip_boundaries": [],
+      "anomalous_values": [],
+      "clinically_expected_to_respond": false,
+      "expected_reason": null,
+      "sweep": [
+        {
+          "value": 34,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        },
+        {
+          "value": 35,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        },
+        {
+          "value": 37.2,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        },
+        {
+          "value": 38,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        },
+        {
+          "value": 39,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        },
+        {
+          "value": 41,
+          "action": [
+            0,
+            0,
+            -0.1
+          ],
+          "weans_fio2": true
+        }
+      ]
+    }
+  },
+  "spurious_flips": [
+    "HR",
+    "PaO2",
+    "pH"
+  ],
+  "clinically_defensible_flips": [
+    "PaCO2"
+  ],
+  "stable_features": [
+    "RASS",
+    "RR",
+    "SBP",
+    "Temp"
+  ],
+  "n_spurious": 3,
+  "n_swept": 8,
+  "interpretation": "Flips concentrated at RARE / extreme feature values are the signature of residual confounding by indication: those regions are thin in the training data and co-occur with differently managed patients. This is a property of observational data, not a code defect \u2014 the causal effect of an action is not identifiable from retrospective records when unobserved severity drove both the action and the outcome. IPW was attempted and made the policy worse (SUMMARY \u00a715.11 C8), and would only ever have addressed MEASURED confounding. The mitigation is therefore containment, not elimination: CQL bounds extrapolation, the OOD gate tempers confidence, and the safety filter is independent of the policy.",
+  "timestamp": "2026-10-08T20:28:35.785681+00:00"
+}
