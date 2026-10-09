@@ -1,0 +1,46 @@
+# Test case - PaCO2 65 on a low tidal volume, volume control
+#
+# SYNTHETIC patient. These twelve values were written by hand to exercise one
+# specific policy behaviour; no MIMIC-IV record is reproduced, so this file
+# carries no credentialed-data restriction and can be shared freely.
+#
+# TIER A: clinical values only, no waveform block, so it opens on Track A - the
+# full-strength policy trained on 992,100 transitions.
+#
+# PaCO2 65 on a tidal volume of only 330 mL. In VOLUME control the ventilator
+# takes a tidal-volume order, so raising it is the direct fix.
+#
+# Upload this file and patient-hypercapnic-pressure-control.txt and compare: the
+# twelve clinical values are IDENTICAL and only the mode differs.
+#
+# MEASURED OUTPUT of the deployed policy (policy_track_a.pt, responsiveness 0.0):
+#     Hold PEEP | Increase TV by 25 mL | Hold FiO2
+#     confidence 0.487
+#   safety filter:
+#     none
+#
+# Tidal volume here is 4.58 mL/kg of the 72 kg body weight.
+
+name: Patient E6
+age: 64
+sex: F
+bed: ICU-16
+summary: PaCO2 65 on a low tidal volume, volume control
+
+weight: 72.0
+
+PEEP: 8
+TV: 330
+FiO2: 0.50
+SpO2: 93
+PaO2: 72
+PaCO2: 65
+pH: 7.28
+HR: 98
+SBP: 118
+RR: 28
+RASS: -1
+Temp: 37.3
+
+ventilation_mode: volume_control
+track: track_a

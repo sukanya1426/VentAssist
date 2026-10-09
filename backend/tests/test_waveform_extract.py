@@ -344,6 +344,23 @@ EXPECTED_INPUTS = {
                               "waveform-10min.txt"],
     "3-tier-b-wfdb-record": ["README.txt", "patient-lowtv.txt",
                              "waveform-10min.dat", "waveform-10min.hea"],
+    # Folder 4 is Tier A like folder 1, but every file is SYNTHETIC and each one
+    # targets a single policy behaviour (hold, the high-PEEP reflex, mode masking,
+    # two settings moving at once). It exists so the system can be demonstrated
+    # without uploading credentialed MIMIC-IV records. Its two hypercapnic files
+    # deliberately share all twelve clinical values and differ only in
+    # `ventilation_mode` — that pair IS the mode-masking demonstration, and the
+    # distinct-patient test below compares file bytes, so it does not fire on them.
+    "4-tier-a-edge-cases": ["README.txt",
+                            "patient-high-peep.txt",
+                            "patient-hypercapnic-pressure-control.txt",
+                            "patient-hypercapnic-volume-control.txt",
+                            "patient-hyperoxic.txt",
+                            "patient-hypocapnic.txt",
+                            "patient-low-peep-high-fio2.txt",
+                            "patient-stable-hold.txt",
+                            "patient-two-problems.txt",
+                            "patient-volutrauma-low-peep.txt"],
 }
 
 
@@ -360,16 +377,19 @@ def test_input_folder_holds_exactly_its_files(folder):
     assert sorted(f.name for f in d.iterdir()) == EXPECTED_INPUTS[folder]
 
 
-def test_samples_root_holds_only_the_three_input_folders():
-    """No loose files at the top level — that was the confusion being removed."""
+def test_samples_root_holds_only_the_declared_input_folders():
+    """No loose files at the top level — that was the confusion being removed.
+
+    Deliberately compares against EXPECTED_INPUTS rather than a hardcoded count, so
+    adding a documented folder is a one-line change here while a stray file or an
+    undocumented folder still fails.
+    """
     if not SAMPLES.is_dir():
         pytest.skip("samples/ not present")
     assert sorted(p.name for p in SAMPLES.iterdir()) == sorted(EXPECTED_INPUTS)
 
 
-@pytest.mark.parametrize("folder", ["1-tier-a-clinical-only",
-                                    "2-tier-b-waveform-txt",
-                                    "3-tier-b-wfdb-record"])
+@pytest.mark.parametrize("folder", sorted(EXPECTED_INPUTS))
 def test_every_shipped_patient_file_is_complete(folder):
     """Each clinical file must carry all 12 values plus weight, or upload 422s."""
     d = SAMPLES / folder

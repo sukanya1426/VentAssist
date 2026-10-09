@@ -1,0 +1,49 @@
+# Test case - PEEP 18 while oxygenating adequately
+#
+# SYNTHETIC patient. These twelve values were written by hand to exercise one
+# specific policy behaviour; no MIMIC-IV record is reproduced, so this file
+# carries no credentialed-data restriction and can be shared freely.
+#
+# TIER A: clinical values only, no waveform block, so it opens on Track A - the
+# full-strength policy trained on 992,100 transitions.
+#
+# PEEP 18 with SpO2 96 and PaO2 95 — the lung is recruited and the pressure is
+# now costing more than it buys. Lowering PEEP here is a SAFETY reflex, and it is
+# the one that is hardest to learn: it appears late in training and is the case a
+# naive early-stopping criterion loses (see backend/rl/selection.py).
+#
+# Note the flag: the recommendation is correct AND still flagged, because 18-2=16
+# is above the 15 cmH2O ceiling. One step is not enough and the system says so
+# rather than pretending the problem is solved.
+#
+# MEASURED OUTPUT of the deployed policy (policy_track_a.pt, responsiveness 0.0):
+#     Decrease PEEP by 2 cmH2O | Hold TV | Hold FiO2
+#     confidence 0.645
+#   safety filter:
+#     [CRITICAL] Resulting PEEP 16 exceeds 15 cmH₂O
+#
+# Tidal volume here is 6.57 mL/kg of the 70 kg body weight.
+
+name: Patient E2
+age: 58
+sex: M
+bed: ICU-12
+summary: PEEP 18 while oxygenating adequately
+
+weight: 70.0
+
+PEEP: 18
+TV: 460
+FiO2: 0.45
+SpO2: 96
+PaO2: 95
+PaCO2: 42
+pH: 7.38
+HR: 88
+SBP: 108
+RR: 18
+RASS: -3
+Temp: 37.1
+
+ventilation_mode: volume_control
+track: track_a

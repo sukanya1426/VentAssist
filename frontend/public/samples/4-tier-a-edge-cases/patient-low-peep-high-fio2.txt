@@ -1,0 +1,45 @@
+# Test case - PEEP 5 on FiO2 0.85 — buying oxygenation with oxygen
+#
+# SYNTHETIC patient. These twelve values were written by hand to exercise one
+# specific policy behaviour; no MIMIC-IV record is reproduced, so this file
+# carries no credentialed-data restriction and can be shared freely.
+#
+# TIER A: clinical values only, no waveform block, so it opens on Track A - the
+# full-strength policy trained on 992,100 transitions.
+#
+# PEEP 5 on FiO2 0.85 — the classic error of buying oxygenation with oxygen
+# instead of recruitment. The ARDSnet table wants PEEP >= 14 at this FiO2.
+# The policy raises PEEP, and the safety filter separately warns about the oxygen
+# itself: two independent mechanisms agreeing from different directions.
+#
+# MEASURED OUTPUT of the deployed policy (policy_track_a.pt, responsiveness 0.0):
+#     Increase PEEP by 2 cmH2O | Hold TV | Hold FiO2
+#     confidence 0.466
+#   safety filter:
+#     [WARNING] Projected FiO₂ 0.85 exceeds the oxygen toxicity threshold (0.80)
+#
+# Tidal volume here is 6.0 mL/kg of the 75 kg body weight.
+
+name: Patient E5
+age: 72
+sex: M
+bed: ICU-15
+summary: PEEP 5 on FiO2 0.85 — buying oxygenation with oxygen
+
+weight: 75.0
+
+PEEP: 5
+TV: 450
+FiO2: 0.85
+SpO2: 90
+PaO2: 62
+PaCO2: 44
+pH: 7.33
+HR: 110
+SBP: 102
+RR: 26
+RASS: -3
+Temp: 37.8
+
+ventilation_mode: volume_control
+track: track_a

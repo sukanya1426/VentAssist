@@ -1,0 +1,46 @@
+# Test case - Hypoxaemic AND severely hypercapnic — two settings must move
+#
+# SYNTHETIC patient. These twelve values were written by hand to exercise one
+# specific policy behaviour; no MIMIC-IV record is reproduced, so this file
+# carries no credentialed-data restriction and can be shared freely.
+#
+# TIER A: clinical values only, no waveform block, so it opens on Track A - the
+# full-strength policy trained on 992,100 transitions.
+#
+# Hypoxaemic (SpO2 88, PaO2 57) AND severely hypercapnic (PaCO2 68, pH 7.20) on a
+# 300 mL tidal volume. Two things are wrong, so TWO settings move at once: volume
+# up for the CO2, oxygen up for the hypoxaemia. The earlier single-problem files
+# move one setting each because only one setting is wrong — not because the policy
+# can only ever change one.
+#
+# MEASURED OUTPUT of the deployed policy (policy_track_a.pt, responsiveness 0.0):
+#     Hold PEEP | Increase TV by 50 mL | Increase FiO2 by 0.10
+#     confidence 0.432
+#   safety filter:
+#     none
+#
+# Tidal volume here is 4.17 mL/kg of the 72 kg body weight.
+
+name: Patient E8
+age: 49
+sex: M
+bed: ICU-18
+summary: Hypoxaemic AND severely hypercapnic — two settings must move
+
+weight: 72.0
+
+PEEP: 5
+TV: 300
+FiO2: 0.35
+SpO2: 88
+PaO2: 57
+PaCO2: 68
+pH: 7.20
+HR: 124
+SBP: 96
+RR: 34
+RASS: -4
+Temp: 38.4
+
+ventilation_mode: volume_control
+track: track_a

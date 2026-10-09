@@ -1,0 +1,44 @@
+# Test case - SpO2 100 on FiO2 0.70 — oxygen to wean
+#
+# SYNTHETIC patient. These twelve values were written by hand to exercise one
+# specific policy behaviour; no MIMIC-IV record is reproduced, so this file
+# carries no credentialed-data restriction and can be shared freely.
+#
+# TIER A: clinical values only, no waveform block, so it opens on Track A - the
+# full-strength policy trained on 992,100 transitions.
+#
+# SpO2 100 on FiO2 0.70. Oxygen saturation cannot go above 100, so everything
+# above ~96% is invisible on the monitor and still toxic to the lung. Weaning FiO2
+# is the indicated move and nothing else needs to change.
+#
+# MEASURED OUTPUT of the deployed policy (policy_track_a.pt, responsiveness 0.0):
+#     Hold PEEP | Hold TV | Decrease FiO2 by 0.10
+#     confidence 0.481
+#   safety filter:
+#     none
+#
+# Tidal volume here is 6.86 mL/kg of the 70 kg body weight.
+
+name: Patient E3
+age: 67
+sex: F
+bed: ICU-13
+summary: SpO2 100 on FiO2 0.70 — oxygen to wean
+
+weight: 70.0
+
+PEEP: 8
+TV: 480
+FiO2: 0.70
+SpO2: 100
+PaO2: 90
+PaCO2: 44
+pH: 7.37
+HR: 92
+SBP: 118
+RR: 22
+RASS: -2
+Temp: 37.2
+
+ventilation_mode: volume_control
+track: track_a

@@ -153,8 +153,10 @@ cd frontend && npm install && cd ..
 ```
 
 Open <http://localhost:5173>. Trained models ship in `backend/models/`, so recommendations work
-without retraining. Sample patients to upload are in `frontend/public/samples/`, one folder per
-input type, each with its expected recommendation.
+without retraining. Sample patients to upload are in `frontend/public/samples/`, each with its
+measured recommendation. Start with `4-tier-a-edge-cases/` — nine synthetic patients covering one
+behaviour each (holding when nothing is wrong, the high-PEEP safety reflex, mode masking, two
+settings moving at once), none of them reproducing a credentialed record.
 
 ```bash
 PYTHONPATH=. .venv/bin/python -m pytest backend/tests -q              # 247 passed

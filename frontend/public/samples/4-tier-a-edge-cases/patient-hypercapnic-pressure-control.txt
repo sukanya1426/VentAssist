@@ -1,0 +1,49 @@
+# Test case - The SAME state in pressure control — tidal volume is not settable
+#
+# SYNTHETIC patient. These twelve values were written by hand to exercise one
+# specific policy behaviour; no MIMIC-IV record is reproduced, so this file
+# carries no credentialed-data restriction and can be shared freely.
+#
+# TIER A: clinical values only, no waveform block, so it opens on Track A - the
+# full-strength policy trained on 992,100 transitions.
+#
+# The SAME twelve values as patient-hypercapnic-volume-control.txt, in PRESSURE
+# control. Here tidal volume is a RESULT of the set pressure, not a setting, so a
+# "increase TV by 25 mL" order cannot be carried out at the bedside.
+#
+# The system masks tidal-volume actions for this mode and recommends from what is
+# left. The dashboard reports the masking rather than hiding it. This is the pair
+# of files to demonstrate mode-aware masking — a safeguard the published
+# alternative (IntelliLung) ships switched off.
+#
+# MEASURED OUTPUT of the deployed policy (policy_track_a.pt, responsiveness 0.0):
+#     Hold PEEP | Hold TV | Hold FiO2
+#     confidence 0.514   (tidal-volume actions MASKED for this mode)
+#   safety filter:
+#     none
+#
+# Tidal volume here is 4.58 mL/kg of the 72 kg body weight.
+
+name: Patient E7
+age: 64
+sex: F
+bed: ICU-17
+summary: The SAME state in pressure control — tidal volume is not settable
+
+weight: 72.0
+
+PEEP: 8
+TV: 330
+FiO2: 0.50
+SpO2: 93
+PaO2: 72
+PaCO2: 65
+pH: 7.28
+HR: 98
+SBP: 118
+RR: 28
+RASS: -1
+Temp: 37.3
+
+ventilation_mode: pressure_control
+track: track_a

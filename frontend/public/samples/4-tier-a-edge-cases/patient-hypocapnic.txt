@@ -1,0 +1,45 @@
+# Test case - Over-ventilated: PaCO2 28, pH 7.52, TV at 8.0 mL/kg
+#
+# SYNTHETIC patient. These twelve values were written by hand to exercise one
+# specific policy behaviour; no MIMIC-IV record is reproduced, so this file
+# carries no credentialed-data restriction and can be shared freely.
+#
+# TIER A: clinical values only, no waveform block, so it opens on Track A - the
+# full-strength policy trained on 992,100 transitions.
+#
+# Over-ventilated: PaCO2 28 and pH 7.52 is a respiratory alkalosis the ventilator
+# is causing. Tidal volume is 8.0 mL/kg — at the ARDSnet ceiling, not above it, so
+# no rule is violated and no flag fires. The policy still backs the volume off,
+# which is the clinically right answer for a reason no safety rule encodes.
+#
+# MEASURED OUTPUT of the deployed policy (policy_track_a.pt, responsiveness 0.0):
+#     Hold PEEP | Decrease TV by 50 mL | Hold FiO2
+#     confidence 0.602
+#   safety filter:
+#     none
+#
+# Tidal volume here is 8.0 mL/kg of the 70 kg body weight.
+
+name: Patient E4
+age: 55
+sex: F
+bed: ICU-14
+summary: Over-ventilated: PaCO2 28, pH 7.52, TV at 8.0 mL/kg
+
+weight: 70.0
+
+PEEP: 7
+TV: 560
+FiO2: 0.35
+SpO2: 98
+PaO2: 120
+PaCO2: 28
+pH: 7.52
+HR: 92
+SBP: 118
+RR: 22
+RASS: -1
+Temp: 37.0
+
+ventilation_mode: volume_control
+track: track_a

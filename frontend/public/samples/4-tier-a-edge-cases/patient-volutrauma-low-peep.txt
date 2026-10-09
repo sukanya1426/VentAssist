@@ -1,0 +1,47 @@
+# Test case - Volutrauma at 10.0 mL/kg on PEEP 3 — cut volume and recruit
+#
+# SYNTHETIC patient. These twelve values were written by hand to exercise one
+# specific policy behaviour; no MIMIC-IV record is reproduced, so this file
+# carries no credentialed-data restriction and can be shared freely.
+#
+# TIER A: clinical values only, no waveform block, so it opens on Track A - the
+# full-strength policy trained on 992,100 transitions.
+#
+# Volutrauma at 10.0 mL/kg on a PEEP of 3 — large breaths delivered to a lung that
+# is not held open, which is how ventilators cause injury. Two settings move: cut
+# the volume and recruit with PEEP.
+#
+# The CRITICAL flag stays on, because 720-50 = 670 mL is still above 8 mL/kg for a
+# 72 kg patient (576 mL). The system does not claim one step has fixed it.
+#
+# MEASURED OUTPUT of the deployed policy (policy_track_a.pt, responsiveness 0.0):
+#     Increase PEEP by 2 cmH2O | Decrease TV by 50 mL | Hold FiO2
+#     confidence 0.496
+#   safety filter:
+#     [CRITICAL] Resulting TV 670 mL exceeds 8 mL/kg (576 mL)
+#
+# Tidal volume here is 10.0 mL/kg of the 72 kg body weight.
+
+name: Patient E9
+age: 70
+sex: M
+bed: ICU-19
+summary: Volutrauma at 10.0 mL/kg on PEEP 3 — cut volume and recruit
+
+weight: 72.0
+
+PEEP: 3
+TV: 720
+FiO2: 0.70
+SpO2: 91
+PaO2: 64
+PaCO2: 36
+pH: 7.44
+HR: 104
+SBP: 108
+RR: 20
+RASS: -2
+Temp: 37.5
+
+ventilation_mode: volume_control
+track: track_a
