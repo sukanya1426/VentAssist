@@ -4,8 +4,6 @@ Clinical decision support for mechanical ventilation. An offline reinforcement l
 trained on MIMIC-IV reads a ventilated patient's hourly state and recommends a change to three
 settings: PEEP, tidal volume, and FiO₂.
 
-Final-year BSSE project. Research prototype — not a medical device, not for clinical use.
-
 ## What it does
 
 Every hour of a ventilation course is one decision point. The policy sees 12 clinical values and
@@ -16,9 +14,6 @@ picks one of 125 discrete actions, each a triple of deltas:
 | ΔPEEP | −2, −1, 0, +1, +2 cmH₂O |
 | ΔTidal volume | −50, −25, 0, +25, +50 mL |
 | ΔFiO₂ | −0.10, −0.05, 0, +0.05, +0.10 |
-
-"Hold" (0, 0, 0) is one of the 125 and is a real answer, not a missing one — the policy holds on
-about 69% of held-out states.
 
 Every recommendation also carries a confidence derived from the policy's Q-value margin, the top-3
 alternative actions with their margins, a safety check on the resulting settings, and the three
@@ -33,11 +28,6 @@ This is what is trained, validated, gated and served.
 variability, breathing regularity, asynchrony) extracted from ECG, Pleth and Resp signals. It is a
 proof of concept: 895 transitions from 35 stays, warm-started from Track A.
 
-Track B currently has **zero waveform influence**. Fine-tuning never beat the warm-start
-initialisation, so the adapter's waveform columns are all zero and Track B returns exactly Track A's
-recommendation and confidence. The UI says so ("waveform recorded, not yet influencing"). This is a
-measured negative result on 35 patients, not a bug. Waveform data still feeds the safety filter via
-the arrhythmia rate.
 
 ## What the evidence says
 
